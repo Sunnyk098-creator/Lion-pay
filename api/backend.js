@@ -1,0 +1,180 @@
+import { initializeApp } from "firebase/app";
+import { getDatabase, ref, get, set, update, increment, runTransaction } from "firebase/database";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCVf5lRQ6t1gFbZeS9j2bf842NhoNrBX8M",
+  authDomain: "lion-pay-a9557.firebaseapp.com",
+  databaseURL: "https://lion-pay-a9557-default-rtdb.firebaseio.com",
+  projectId: "lion-pay-a9557",
+  storageBucket: "lion-pay-a9557.firebasestorage.app",
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+export default async function handler(req, res) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Content-Type', 'application/json');
+
+    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method !== 'POST') return res.status(405).json({ error: "Only POST allowed" });
+
+    const { action, data } = req.body;
+
+    try {
+        if (action === 'CHECK_USER') {
+            const snap = await get(ref(db, `users/${data.phone}`));
+            return res.json({ data: snap.exists() ? snap.val() : null });
+        }
+
+        if (action === 'LOGIN') {
+            const snap = await get(ref(db, `users/${data.phone}`));
+            if (!snap.exists() || snap.val().password !== data.password) throw new Error("Invalid Phone or Password!");
+            if (snap.val().isBanned) throw new Error("Account is Banned.");
+            return res.json({ data: snap.val() });
+        }
+
+        if (action === 'REGISTER') {
+            const snap = await get(ref(db, `users/${data.phone}`));
+            if (snap.exists()) throw new Error("Phone number already registered!");
+            await set(ref(db, `users/${data.phone}`), data.userObj);
+            return res.json({ data: "Success" });
+        }
+
+        if (action === 'UPDATE_CREDS') {
+            await update(ref(db, `users/${data.phone}`), { password: data.password, pin: data.pin });
+            return res.json({ data: "Success" });
+        }
+
+        if (action === 'SYNC') {
+            const [uSnap, cSnap, tSnap, gSnap] = await Promise.all([ 
+                get(ref(db, `users/${data.phone}`)), get(ref(db, "settings")), get(ref(db, "transactions")), get(ref(db, `game_rounds/${data.gameRoundId}`))
+            ]);
+            let txns = [];
+            if(tSnap.exists()) {
+                tSnap.forEach(c => {
+                    let t = c.val();
+                    if(t.senderId === data.phone || t.receiverId === data.phone) {
+                        let adaptedTxn = { ...t };
+                        let rName = (t.name && t.name !== 'N/A') ? t.name : t.receiverId;
+                        let sName = (t.senderName && t.senderName !== 'N/A') ? t.senderName : t.senderId;
+                        if (t.senderId === data.phone && t.receiverId === data.phone) { adaptedTxn.type = t.type; } 
+                        else if (t.senderId === data.phone) { adaptedTxn.type = 'out'; adaptedTxn.title = t.isApi ? `Sent via API to ${rName}` : `Sent to ${rName}`; } 
+                        else if (t.receiverId === data.phone) { adaptedTxn.type = 'in'; adaptedTxn.title = t.isApi ? `API Payment Received from ${sName}` : `Received from ${sName}`; adaptedTxn.icon = 'fa-arrow-down'; adaptedTxn.color = 'green'; }
+                        txns.push(adaptedTxn);
+                    }
+                });
+            }
+            txns.sort((a, b) => b.timestamp - a.timestamp);
+            return res.json({ data: { user: uSnap.val() || {}, settings: cSnap.val() || {}, txns: txns, gameRound: gSnap.val() || { totalRed: 0, totalGreen: 0 } }});
+        }
+
+        if (action === 'EXECUTE_TXN') {
+            const updates = {};
+            if (data.mode === 'SEND') { updates[`users/${data.sender}/balance`] = increment(-data.amount); updates[`users/${data.receiver}/balance`] = increment(data.amount); } 
+            else if (data.mode === 'WITHDRAW' || data.mode === 'DEPOSIT_FEE') { updates[`users/${data.sender}/balance`] = increment(-data.amount); } 
+            else if (data.mode === 'KEEPER_LOCK') { updates[`users/${data.sender}/balance`] = increment(-data.amount); updates[`users/${data.sender}/keeperBalance`] = increment(data.amount); } 
+            else if (data.mode === 'KEEPER_WITHDRAW') { updates[`users/${data.sender}/keeperBalance`] = increment(-data.amount); updates[`users/${data.sender}/balance`] = increment(data.amount); } 
+            else if (data.mode === 'CARD_LOAD') { updates[`users/${data.sender}/balance`] = increment(-data.amount); updates[`users/${data.sender}/cardBalance`] = increment(data.amount); } 
+            else if (data.mode === 'CARD_WITHDRAW') { updates[`users/${data.sender}/cardBalance`] = increment(-data.amount); updates[`users/${data.sender}/balance`] = increment(data.amount); } 
+            else if (data.mode === 'CARD_PAY') { updates[`users/${data.sender}/cardBalance`] = increment(-data.amount); } 
+            else if (data.mode === 'GAME_WIN' || data.mode === 'GAME_REFUND') { updates[`users/${data.sender}/balance`] = increment(data.amount); }
+            if(data.txn) updates[`transactions/${data.txn.id}`] = data.txn;
+            await update(ref(db), updates); return res.json({ data: "Success" });
+        }
+
+        if (action === 'BULK_PAY') {
+            const total = data.amount * data.receivers.length;
+            const updates = { [`users/${data.sender}/balance`]: increment(-total) };
+            data.receivers.forEach(num => {
+                updates[`users/${num}/balance`] = increment(data.amount);
+                let txnId = 'TXN' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+                updates[`transactions/${txnId}`] = { id: txnId, type: 'out', title: 'Bulk Send', amount: data.amount, status: 'Success', date: data.date, timestamp: Date.now(), icon: 'fa-paper-plane', color: 'yellow', name: 'User', number: num, senderId: data.sender, receiverId: num };
+            });
+            await update(ref(db), updates); return res.json({ data: "Success" });
+        }
+
+        if (action === 'CREATE_LIFAFA') {
+            let totalDeduct = Number(data.amount) * Number(data.totalUsers);
+            const uSnap = await get(ref(db, `users/${data.phone}`));
+            if (!uSnap.exists() || uSnap.val().balance < totalDeduct) throw new Error("Insufficient Balance!");
+            const newLifafa = { id: data.code, creator: data.phone, type: data.type, amount: Number(data.amount), totalUsers: Number(data.totalUsers), claimedUsers: 0, timestamp: Date.now(), status: 'ACTIVE', channel: data.channel || "" };
+            const updates = { [`users/${data.phone}/balance`]: increment(-totalDeduct), [`lifafas/${data.code}`]: newLifafa, [`transactions/${data.txn.id}`]: data.txn };
+            await update(ref(db), updates); return res.json({ data: "Success" });
+        }
+
+        // Feature: Fetch Lifafa details for public link
+        if (action === 'GET_LIFAFA_INFO') {
+            const snap = await get(ref(db, `lifafas/${data.code}`));
+            if (!snap.exists() || snap.val().status !== 'ACTIVE') throw new Error("Lifafa not found or fully claimed.");
+            return res.json({ data: snap.val() });
+        }
+
+        if (action === 'CLAIM_LIFAFA') {
+            let wonAmount = 0;
+            const lifafaRef = ref(db, `lifafas/${data.code}`);
+            await update(ref(db), { dummy: null }); 
+            
+            const result = await runTransaction(lifafaRef, (currentData) => {
+                if (currentData === null) return null; 
+                if (currentData.status !== 'ACTIVE') return;
+                if (currentData.claimers && currentData.claimers[data.phone]) return; 
+                if (currentData.claimedUsers >= currentData.totalUsers) return; 
+
+                currentData.claimedUsers = (currentData.claimedUsers || 0) + 1;
+                if (!currentData.claimers) currentData.claimers = {};
+                currentData.claimers[data.phone] = true;
+                if (currentData.claimedUsers >= currentData.totalUsers) currentData.status = 'COMPLETED';
+                return currentData;
+            });
+
+            if (!result.committed) throw new Error("Lifafa invalid, expired, or already claimed.");
+            
+            let lData = result.snapshot.val();
+            wonAmount = (lData.type === 'Random Amount') ? Math.floor(Math.random() * lData.amount) + 1 : lData.amount;
+
+            const uSnap = await get(ref(db, `users/${data.phone}`));
+            const updates = {};
+            if(!uSnap.exists()) {
+                 // Create ghost profile if new user claims via link
+                 updates[`users/${data.phone}`] = { phone: data.phone, balance: wonAmount, name: "New User", isBanned: false };
+            } else {
+                 updates[`users/${data.phone}/balance`] = increment(wonAmount);
+            }
+            updates[`transactions/${data.txn.id}`] = { ...data.txn, amount: wonAmount };
+            await update(ref(db), updates); return res.json({ data: wonAmount });
+        }
+
+        if (action === 'CREATE_GIFT') {
+            const total = data.amount * data.users;
+            const updates = { [`users/${data.phone}/balance`]: increment(-total), [`giftcodes/${data.code}`]: { amountPerUser: data.amount, remainingUsers: data.users, totalUsers: data.users, createdBy: data.phone }, [`transactions/${data.txn.id}`]: data.txn };
+            await update(ref(db), updates); return res.json({ data: "Success" });
+        }
+
+        if (action === 'CLAIM_GIFT') {
+            let resultAmount = 0; const codeRef = ref(db, `giftcodes/${data.code}`); await update(ref(db), { dummy: null }); 
+            const result = await runTransaction(codeRef, (currentData) => {
+                if (currentData === null) return null; if (currentData.claimers && currentData.claimers[data.phone]) return; if (currentData.remainingUsers <= 0) return; 
+                currentData.remainingUsers -= 1; if (!currentData.claimers) currentData.claimers = {}; currentData.claimers[data.phone] = true; return currentData;
+            });
+            if (!result.committed) throw new Error("Code invalid, expired, or already claimed.");
+            resultAmount = result.snapshot.val().amountPerUser;
+            const updates = { [`users/${data.phone}/balance`]: increment(resultAmount), [`transactions/${data.txn.id}`]: data.txn };
+            if (result.snapshot.val().remainingUsers <= 0) updates[`giftcodes/${data.code}`] = null; 
+            await update(ref(db), updates); return res.json({ data: resultAmount });
+        }
+
+        if (action === 'GENERATE_API') {
+            await update(ref(db, `users/${data.phone}`), { apiKey: data.newKey }); return res.json({ data: "Success" });
+        }
+
+        if (action === 'GAME_BET') {
+            const updates = { [`users/${data.phone}/balance`]: increment(-data.amount) };
+            if(data.color === 'red') updates[`game_rounds/${data.roundId}/totalRed`] = increment(data.amount); else updates[`game_rounds/${data.roundId}/totalGreen`] = increment(data.amount);
+            await update(ref(db), updates); return res.json({ data: "Success" });
+        }
+
+        return res.status(400).json({ error: "Unknown Action" });
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+}
