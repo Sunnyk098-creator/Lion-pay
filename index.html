@@ -928,7 +928,7 @@
             
             updateGameSim(); 
             syncData(); 
-            // FIXED: 3 seconds fast response auto sync time
+            // 3 seconds fast response auto sync time
             setInterval(syncData, 3000); 
             setInterval(updateGameSim, 1000); 
             
@@ -961,12 +961,17 @@
         }
 
         async function processAdd() {
-            let utr = document.getElementById('add-utr').value; let amt = parseFloat(document.getElementById('add-amt').value);
-            let txn = createTxnObj('in', 'Deposit via UTR ' + utr.substring(0,4)+'...', amt, 'Pending', 'fa-clock', 'yellow', 'Self Deposit', 'N/A');
+            // FIXED: Using trim() and passing 'utr' in the 'number' field so it doesn't get truncated
+            let utr = document.getElementById('add-utr').value.trim(); 
+            let amt = parseFloat(document.getElementById('add-amt').value);
+            
+            let txn = createTxnObj('in', 'Deposit via UTR', amt, 'Pending', 'fa-clock', 'yellow', 'Self Deposit', utr);
             await apiCall('EXECUTE_TXN', { mode: 'DEPOSIT', sender: currentUser.phone, txn });
+            
             let adminChatId = globalSettings.adminChatId || null; 
             if (adminChatId) sendTelegramMsg(adminChatId, `🔔 DEPOSIT REQ\nUser: ${currentUser.name}\nAmount: ₹${amt}\nUTR: ${utr}\nTXN: ${txn.id}`);
             else sendTelegramMsg(currentUser.tgUserId, `🕒 Deposit Pending\nAmount: ₹${amt}\nUTR: ${utr}`);
+            
             document.getElementById('add-utr').value = ''; document.getElementById('add-amt').value = ''; showToast("Deposit Request Sent!"); setTimeout(() => showView('home'), 1200);
         }
 
@@ -988,7 +993,7 @@
             if(amt < 10) return alert("Minimum withdrawal is ₹10"); if(amt > currentBalance) return showToast("Insufficient Balance!");
             let txn = createTxnObj('out', 'Withdrawal Request', amt, 'Pending', 'fa-university', 'yellow', 'Bank Withdraw', upi);
             
-            // FIXED: Non-blocking for fast response (No await)
+            // Non-blocking for fast response (No await)
             apiCall('EXECUTE_TXN', { mode: 'WITHDRAW', sender: currentUser.phone, amount: amt, txn }).catch(e => console.error(e));
             
             let adminChatId = globalSettings.adminChatId || null; 
@@ -1166,7 +1171,7 @@
                 let amountClass = txn.type === 'in' ? 'text-green-500' : 'text-gray-800'; let sign = txn.type === 'in' ? '+' : '-';
                 let statusColor = txn.status === 'Pending' ? 'text-yellow-500' : (txn.status === 'Rejected' ? 'text-red-500' : 'text-gray-400'); if(txn.status === 'Success' || txn.status === 'Verified') statusColor = 'text-green-500';
                 
-                // Transaction title fix applied
+                // Fixed Titles shown
                 listEl.innerHTML += `<div onclick="openTxnModal('${txn.id}')" class="flex justify-between items-center p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer"><div class="flex items-center gap-3"><div class="w-11 h-11 rounded-2xl bg-${txn.color}-50 text-${txn.color}-500 flex items-center justify-center text-lg border border-${txn.color}-100"><i class="fas ${txn.icon}"></i></div><div><p class="text-sm font-bold text-gray-800">${txn.title}</p><p class="text-[10px] ${statusColor} font-bold mt-0.5">${txn.status} • ${txn.date.split(',')[0]}</p></div></div><p class="font-black ${amountClass}">${sign}₹${parseFloat(txn.amount).toFixed(2)}</p></div>`;
             });
         }
