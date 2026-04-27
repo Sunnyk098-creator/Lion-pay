@@ -60,45 +60,54 @@ export default async function handler(req, res) {
             adminData = child.val() || {}; 
         });
 
-        // 1-Time Reset Logic for Deposit API 
-        // Ye sabse upar kiya hai taaki amount ya parameter error aane par bhi API key turant invalid ho jaye
-        let newDepKey = null;
-        if (isDepositApi) {
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-            newDepKey = 'LWDP-';
-            for(let i=0; i<12; i++) newDepKey += chars.charAt(Math.floor(Math.random() * chars.length));
-            await update(ref(db), { [`users/${adminPhone}/depositApiKey`]: newDepKey });
-        }
-
+        // 1. Check Missing Parameters
         if (!targetNumber || !amount) {
             return res.status(400).json({ status: "error", message: "Missing target number or amount required." });
         }
 
+        // 2. Check Invalid Amount
         const withdrawAmount = Number(amount);
         if (isNaN(withdrawAmount) || withdrawAmount <= 0) {
             return res.status(400).json({ status: "error", message: "Invalid amount!" });
         }
 
+        // 3. Check Self Transfer
         if (String(adminPhone) === targetNumber) {
             return res.status(400).json({ status: "error", message: "API Owner cannot send payment to their own number (Self-transfer not allowed)!" });
         }
 
+        // Generate New Deposit Key (But don't save it yet)
+        let newDepKey = null;
+        if (isDepositApi) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            newDepKey = 'LWDP-';
+            for(let i=0; i<12; i++) newDepKey += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+
+        // 4. Strict Balance Check (Reset Key here if Insufficient Balance)
         const currentAdminBal = Number(adminData.balance) || 0;
         if (currentAdminBal < withdrawAmount) {
+            // INSUFFICIENT BALANCE WALI CONDITION MEIN KEY RESET KARNA HAI
+            if (isDepositApi && newDepKey) {
+                await update(ref(db), { [`users/${adminPhone}/depositApiKey`]: newDepKey });
+            }
             return res.status(400).json({ status: "error", message: "Insufficient Balance in API Owner's wallet!" });
         }
 
+        // 5. Check if Receiver Exists
         const receiverSnap = await get(ref(db, "users/" + targetNumber));
         if (!receiverSnap.exists()) {
             return res.status(404).json({ status: "error", message: "Receiver mobile number is not registered in wallet!" });
         }
         let receiverData = receiverSnap.val() || {};
 
+        // SUCCESSFUL PAYMENT PROCESS START
         const exactDate = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
         const txnId = "TXN" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
 
         const updates = {};
         
+        // Deduct from Sender & Add to Receiver
         updates[`users/${adminPhone}/balance`] = increment(-withdrawAmount);
         updates[`users/${targetNumber}/balance`] = increment(withdrawAmount);
 
@@ -125,6 +134,12 @@ export default async function handler(req, res) {
             isDeposit: isDepositApi
         };
 
+        // SUCCESS WALI CONDITION MEIN KEY RESET KARNA HAI
+        if (isDepositApi && newDepKey) {
+            updates[`users/${adminPhone}/depositApiKey`] = newDepKey;
+        }
+
+        // Execute all updates simultaneously
         await update(ref(db), updates);
 
         let rName = receiverData.name || targetNumber;
