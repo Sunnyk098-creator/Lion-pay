@@ -69,7 +69,7 @@ export default async function handler(req, res) {
                         else if (t.senderId === data.phone) { adaptedTxn.type = 'out'; adaptedTxn.title = t.isApi ? (t.isDeposit ? `Deposit API via ${rName}` : `Sent via API to ${rName}`) : `Sent to ${rName}`; } 
                         else if (t.receiverId === data.phone) { 
                             adaptedTxn.type = 'in'; 
-                            // Fix: Keep original title for system/self transactions
+                            // Keep original title for system/self transactions
                             if (t.senderId === 'SYSTEM' || t.senderId === data.phone || t.title.includes('Lifafa') || t.title.includes('Deposit via') || t.title.includes('Game') || t.title.includes('Gift')) {
                                 adaptedTxn.title = t.title;
                             } else {
@@ -88,6 +88,22 @@ export default async function handler(req, res) {
             if (pSnap.exists()) {
                 pSnap.forEach(p => { postsArr.push(p.val()); });
             }
+
+            // GAME ROUND CLEANUP LOGIC - Non-blocking (Deletes oldest 3 if rounds > 5)
+            get(ref(db, 'game_rounds')).then(allGamesSnap => {
+                if (allGamesSnap.exists()) {
+                    let rounds = [];
+                    allGamesSnap.forEach(child => { rounds.push(child.key); });
+                    if (rounds.length > 5) {
+                        rounds.sort(); // Sort so oldest are first
+                        let updates = {};
+                        for(let i = 0; i < 3; i++) {
+                            if (rounds[i]) updates[`game_rounds/${rounds[i]}`] = null;
+                        }
+                        update(ref(db), updates).catch(()=>{});
+                    }
+                }
+            }).catch(()=>{});
 
             return res.json({ data: { user: uSnap.val() || {}, settings: cSnap.val() || {}, txns: txns, gameRound: gSnap.val() || { totalRed: 0, totalGreen: 0 }, posts: postsArr }});
         }
