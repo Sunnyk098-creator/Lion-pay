@@ -72,8 +72,7 @@ export default async function handler(req, res) {
                         } 
                         else if (t.receiverId === data.phone) { 
                             adaptedTxn.type = 'in'; 
-                            // Keep original title for system/self transactions
-                            if (t.senderId === 'SYSTEM' || t.senderId === data.phone || t.title.includes('Lifafa') || t.title.includes('Deposit via') || t.title.includes('Game') || t.title.includes('Gift') || t.title.includes('Maintenance')) {
+                            if (t.senderId === 'SYSTEM' || t.senderId === data.phone || t.title.includes('Lifafa') || t.title.includes('Deposit via') || t.title.includes('Game') || t.title.includes('Gift') || t.title.includes('Maintenance Fee')) {
                                 adaptedTxn.title = t.title;
                             } else {
                                 adaptedTxn.title = t.isApi ? `API Payment Received from ${sName}` : `Received from ${sName}`; 
@@ -92,13 +91,12 @@ export default async function handler(req, res) {
                 pSnap.forEach(p => { postsArr.push(p.val()); });
             }
 
-            // GAME ROUND CLEANUP LOGIC - Non-blocking (Deletes oldest 3 if rounds > 5)
             get(ref(db, 'game_rounds')).then(allGamesSnap => {
                 if (allGamesSnap.exists()) {
                     let rounds = [];
                     allGamesSnap.forEach(child => { rounds.push(child.key); });
                     if (rounds.length > 5) {
-                        rounds.sort(); // Sort so oldest are first
+                        rounds.sort(); 
                         let updates = {};
                         for(let i = 0; i < 3; i++) {
                             if (rounds[i]) updates[`game_rounds/${rounds[i]}`] = null;
@@ -112,6 +110,24 @@ export default async function handler(req, res) {
         }
 
         if (action === 'EXECUTE_TXN') {
+            if (data.amount !== undefined && Number(data.amount) <= 0) {
+                throw new Error("Amount must be greater than zero!");
+            }
+
+            // Zero balance / strictly negative protection
+            if (['SEND', 'WITHDRAW', 'DEPOSIT_FEE', 'KEEPER_LOCK'].includes(data.mode)) {
+                const uSnap = await get(ref(db, `users/${data.sender}`));
+                if (!uSnap.exists() || (Number(uSnap.val().balance) || 0) < Number(data.amount)) {
+                    throw new Error("Insufficient Balance!");
+                }
+            }
+            if (data.mode === 'KEEPER_WITHDRAW') {
+                const uSnap = await get(ref(db, `users/${data.sender}`));
+                if (!uSnap.exists() || (Number(uSnap.val().keeperBalance) || 0) < Number(data.amount)) {
+                    throw new Error("Insufficient Keeper Balance!");
+                }
+            }
+
             const updates = {};
             if (data.mode === 'SEND') { updates[`users/${data.sender}/balance`] = increment(-Number(data.amount)); updates[`users/${data.receiver}/balance`] = increment(Number(data.amount)); } 
             else if (data.mode === 'WITHDRAW') { updates[`users/${data.sender}/balance`] = increment(-Number(data.amount)); } 
@@ -133,7 +149,16 @@ export default async function handler(req, res) {
         }
 
         if (action === 'BULK_PAY') {
+            if (data.amount === undefined || Number(data.amount) <= 0) throw new Error("Amount must be greater than zero!");
+            
             const total = Number(data.amount) * data.receivers.length;
+            if (total <= 0) throw new Error("Invalid total amount!");
+            
+            const snap = await get(ref(db, `users/${data.sender}`));
+            if (!snap.exists() || (Number(snap.val().balance) || 0) < total) {
+                throw new Error("Insufficient Balance!");
+            }
+
             const updates = { [`users/${data.sender}/balance`]: increment(-total) };
             data.receivers.forEach(num => {
                 updates[`users/${num}/balance`] = increment(Number(data.amount));
@@ -150,6 +175,7 @@ export default async function handler(req, res) {
             } else {
                 totalDeduct = Number(data.amount) * Number(data.totalUsers);
             }
+            if (totalDeduct <= 0) throw new Error("Invalid Lifafa Configuration!");
 
             const uSnap = await get(ref(db, `users/${data.phone}`));
             if (!uSnap.exists() || (Number(uSnap.val().balance) || 0) < totalDeduct) throw new Error("Insufficient Balance!");
@@ -242,7 +268,16 @@ export default async function handler(req, res) {
         }
 
         if (action === 'CREATE_GIFT') {
+            if (data.amount === undefined || Number(data.amount) <= 0) throw new Error("Amount must be greater than zero!");
+
             const total = Number(data.amount) * data.users;
+            if (total <= 0) throw new Error("Invalid total amount!");
+
+            const snap = await get(ref(db, `users/${data.phone}`));
+            if (!snap.exists() || (Number(snap.val().balance) || 0) < total) {
+                throw new Error("Insufficient Balance!");
+            }
+
             const updates = { [`users/${data.phone}/balance`]: increment(-total), [`giftcodes/${data.code}`]: { amountPerUser: Number(data.amount), remainingUsers: data.users, totalUsers: data.users, createdBy: data.phone }, [`transactions/${data.txn.id}`]: data.txn };
             await update(ref(db), updates); return res.json({ data: "Success" });
         }
@@ -269,6 +304,8 @@ export default async function handler(req, res) {
         }
 
         if (action === 'GAME_BET') {
+            if (data.amount === undefined || Number(data.amount) <= 0) throw new Error("Amount must be greater than zero!");
+
             const uSnap = await get(ref(db, `users/${data.phone}`));
             if (!uSnap.exists() || (Number(uSnap.val().balance) || 0) < Number(data.amount)) {
                 throw new Error("Insufficient Balance! Server sync failed.");
