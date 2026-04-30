@@ -668,6 +668,18 @@
         let html5QrcodeScanner = null;
         let isBetting = false; 
 
+        // SPAM PREVENTION
+        let isActionOnCooldown = false;
+        function checkCooldown() {
+            if (isActionOnCooldown) {
+                showToast("Please wait 3 seconds before next action!");
+                return false;
+            }
+            isActionOnCooldown = true;
+            setTimeout(() => { isActionOnCooldown = false; }, 3000);
+            return true;
+        }
+
         // --- NEW MAINTENANCE HELPERS ---
         function openLifafaMaintenance() {
             document.getElementById('lifafa-maintenance-overlay').classList.remove('hidden');
@@ -901,9 +913,12 @@
         });
 
         async function processSend() {
+            if(!checkCooldown()) return;
             let pin = document.getElementById('send-pin').value; if(!checkSecurityPin(pin)) return;
             let num = document.getElementById('send-num').value.trim(); if (num === currentUser.phone) return showToast("Cannot send to yourself!");
-            let amt = parseFloat(document.getElementById('send-amt').value); if(amt > currentBalance) return showToast("Insufficient Balance!");
+            let amt = parseFloat(document.getElementById('send-amt').value); 
+            if(isNaN(amt) || amt <= 0) return showToast("Invalid amount!");
+            if(amt > currentBalance) return showToast("Insufficient Balance!");
             try {
                 let receiver = await apiCall('CHECK_USER', { phone: num }); if (!receiver) return showToast("Receiver not found!");
                 let name = receiver.name || 'Unknown User'; let txn = createTxnObj('out', 'Sent to ' + name, amt, 'Success', 'fa-paper-plane', 'yellow', name, num);
@@ -914,8 +929,10 @@
         }
 
         async function processAdd() {
+            if(!checkCooldown()) return;
             let utr = document.getElementById('add-utr').value.trim(); 
             let amt = parseFloat(document.getElementById('add-amt').value);
+            if(isNaN(amt) || amt <= 0) return showToast("Invalid amount!");
             
             let txn = createTxnObj('in', 'Deposit via UTR', amt, 'Pending', 'fa-clock', 'yellow', 'Self Deposit', utr);
             await apiCall('EXECUTE_TXN', { mode: 'DEPOSIT', sender: currentUser.phone, txn });
@@ -928,8 +945,12 @@
         }
 
         async function processBulk() {
+            if(!checkCooldown()) return;
             let pin = document.getElementById('bulk-pin').value; if(!checkSecurityPin(pin)) return;
-            let numsText = document.getElementById('bulk-nums').value.trim(); let amt = parseFloat(document.getElementById('bulk-amt').value); if(!numsText) return;
+            let numsText = document.getElementById('bulk-nums').value.trim(); 
+            let amt = parseFloat(document.getElementById('bulk-amt').value); 
+            if(isNaN(amt) || amt <= 0) return showToast("Invalid amount!");
+            if(!numsText) return;
             let lines = numsText.split('\n').filter(n => n.trim() !== '' && n !== currentUser.phone);
             let totalAmt = lines.length * amt; if(totalAmt > currentBalance) return showToast(`Need ₹${totalAmt} for ${lines.length} users.`);
             try {
@@ -940,8 +961,11 @@
         }
 
         function processWithdraw() {
+            if(!checkCooldown()) return;
             let pin = document.getElementById('with-pin').value; if(!checkSecurityPin(pin)) return;
-            let upi = document.getElementById('with-upi').value; let amt = parseFloat(document.getElementById('with-amt').value);
+            let upi = document.getElementById('with-upi').value; 
+            let amt = parseFloat(document.getElementById('with-amt').value);
+            if(isNaN(amt) || amt <= 0) return showToast("Invalid amount!");
             if(amt < 10) return alert("Minimum withdrawal is ₹10"); if(amt > currentBalance) return showToast("Insufficient Balance!");
             let txn = createTxnObj('out', 'Withdrawal Request', amt, 'Pending', 'fa-university', 'yellow', 'Bank Withdraw', upi);
             
@@ -959,8 +983,12 @@
         }
 
         async function processGiftCreate() {
+            if(!checkCooldown()) return;
             let pin = document.getElementById('gift-pin').value; if(!checkSecurityPin(pin)) return;
-            let amt = parseFloat(document.getElementById('gift-amt').value); let users = parseInt(document.getElementById('gift-users').value); let total = amt * users;
+            let amt = parseFloat(document.getElementById('gift-amt').value); 
+            let users = parseInt(document.getElementById('gift-users').value); 
+            if(isNaN(amt) || amt <= 0) return showToast("Invalid amount!");
+            let total = amt * users;
             if(total > currentBalance) return alert(`Need ₹${total}`);
             let code = Math.random().toString(36).substring(2, 7).toUpperCase();
             let txn = createTxnObj('out', `Gift Code Created`, total, `Code: ${code}`, 'fa-gift', 'pink', 'Gift System', 'N/A');
@@ -982,16 +1010,22 @@
         }
 
         async function processKeeperLock() {
+            if(!checkCooldown()) return;
             let pin = document.getElementById('kl-pin').value; if(!checkSecurityPin(pin)) return;
-            let amt = parseFloat(document.getElementById('kl-amt').value); if(amt > currentBalance) return alert("Insufficient Wallet Balance!");
+            let amt = parseFloat(document.getElementById('kl-amt').value); 
+            if(isNaN(amt) || amt <= 0) return showToast("Invalid amount!");
+            if(amt > currentBalance) return alert("Insufficient Wallet Balance!");
             let txn = createTxnObj('out', 'Locked in Keeper', amt, 'Success', 'fa-lock', 'orange', 'Self Vault', 'N/A');
             await apiCall('EXECUTE_TXN', { mode: 'KEEPER_LOCK', sender: currentUser.phone, amount: amt, txn });
             currentBalance -= amt; keeperBalance += amt; updateUI(); document.getElementById('kl-amt').value = ''; document.getElementById('kl-pin').value = ''; showToast(`₹${amt} safely locked!`);
         }
 
         async function processKeeperWithdraw() {
+            if(!checkCooldown()) return;
             let pin = document.getElementById('kw-pin').value; if(!checkSecurityPin(pin)) return;
-            let amt = parseFloat(document.getElementById('kw-amt').value); if(amt > keeperBalance) return alert("Insufficient Keeper Balance!");
+            let amt = parseFloat(document.getElementById('kw-amt').value); 
+            if(isNaN(amt) || amt <= 0) return showToast("Invalid amount!");
+            if(amt > keeperBalance) return alert("Insufficient Keeper Balance!");
             let txn = createTxnObj('in', 'Withdrawn from Keeper', amt, 'Success', 'fa-unlock', 'green', 'Self Vault', 'N/A');
             await apiCall('EXECUTE_TXN', { mode: 'KEEPER_WITHDRAW', sender: currentUser.phone, amount: amt, txn });
             keeperBalance -= amt; currentBalance += amt; updateUI(); document.getElementById('kw-amt').value = ''; document.getElementById('kw-pin').value = ''; showToast(`₹${amt} moved to Wallet!`);
@@ -1023,10 +1057,12 @@
         }
 
         async function placeGameBet(color) {
+            if(currentBalance < 1) return showToast("You need minimum ₹1 for this feature");
+            if(!checkCooldown()) return;
             if(gameState === 'DISTRIBUTING' || gameTimer <= 5) return showToast("Bets are closed! Wait for next round.");
             let amt = selectedGameCoin; 
             
-            if(amt <= 0) return showToast("Invalid amount!");
+            if(isNaN(amt) || amt <= 0) return showToast("Invalid amount!");
             if(amt > currentBalance) return showToast("Insufficient Balance!");
             if(isBetting) return showToast("Processing..."); 
             
@@ -1225,12 +1261,18 @@
         function copyTxnId() { navigator.clipboard.writeText(currentModalTxnId); showToast("Copied!"); }
         function showToast(msg) { const toast = document.getElementById('toast'); document.getElementById('toastMsg').innerText = msg; toast.classList.remove('hidden'); setTimeout(()=>toast.classList.remove('opacity-0'),10); setTimeout(()=>{toast.classList.add('opacity-0'); setTimeout(()=>toast.classList.add('hidden'),300);}, 3000); }
         function copyText(text) { navigator.clipboard.writeText(text); showToast("Copied!"); }
+        
         function showView(viewId) { 
+            if ((viewId === 'send' || viewId === 'game' || viewId === 'bulk' || viewId === 'scan' || viewId === 'gift' || viewId === 'withdraw') && currentBalance < 1) {
+                showToast("You need minimum ₹1 for this feature");
+                return;
+            }
             if (viewId === 'official') markPostsAsRead();
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active')); 
             document.getElementById('view-' + viewId).classList.add('active'); 
             document.querySelectorAll('.nav-item').forEach(el => { el.classList.remove('text-yellow-500'); el.classList.add('text-gray-400'); if(el.innerText.toLowerCase().includes(viewId)) { el.classList.remove('text-gray-400'); el.classList.add('text-yellow-500'); } }); window.scrollTo({top:0, behavior:'smooth'}); 
         }
+
         function toggleSidebar() { const sidebar = document.getElementById('sidebar'); const overlay = document.getElementById('sidebarOverlay'); if(sidebar.classList.contains('-translate-x-full')) { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); setTimeout(()=>overlay.classList.add('opacity-100'),10); } else { sidebar.classList.add('-translate-x-full'); overlay.classList.remove('opacity-100'); setTimeout(()=>overlay.classList.add('hidden'),300); } }
         function switchTab(tabId) { document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active', 'bg-[#f59e0b]', 'text-white')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.add('text-[#6b7280]')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); let activeBtn = document.getElementById('tab-'+tabId); activeBtn.classList.remove('text-[#6b7280]'); activeBtn.classList.add('active', 'bg-[#f59e0b]', 'text-white'); document.getElementById(tabId).classList.add('active'); }
         function switchKeeperTab(tabId) { document.querySelectorAll('.keeper-tab-btn').forEach(btn => btn.classList.remove('active')); document.querySelectorAll('.keeper-tab-content').forEach(c => c.classList.remove('active')); document.getElementById('btn-'+tabId).classList.add('active'); document.getElementById(tabId).classList.add('active'); }
@@ -1258,6 +1300,7 @@
         function searchTxn() { let id = document.getElementById('search-txn-id').value; let found = transactions.find(t => t.id.toLowerCase() === id.toLowerCase()); if(found) openTxnModal(found.id); else alert("Transaction Not Found"); }
 
         function startScanner() {
+            if (currentBalance < 1) return;
             document.getElementById('scanner-container').classList.remove('hidden'); document.getElementById('scan-result').classList.add('hidden');
             if(html5QrcodeScanner) html5QrcodeScanner.clear();
             html5QrcodeScanner = new Html5Qrcode("reader");
@@ -1277,11 +1320,14 @@
             document.getElementById('scan-amt').value = ''; document.getElementById('scan-pin').value = '';
         }
         function resetScanner() { startScanner(); }
+        
         async function processScanPay() {
+            if(!checkCooldown()) return;
             let pin = document.getElementById('scan-pin').value; if(!checkSecurityPin(pin)) return;
             let num = document.getElementById('scan-res-phone').innerText;
             if(num === currentUser.phone) return showToast("Cannot send to yourself!");
             let amt = parseFloat(document.getElementById('scan-amt').value);
+            if(isNaN(amt) || amt <= 0) return showToast("Invalid amount!");
             if(amt > currentBalance) return showToast("Insufficient Balance!");
             
             try {
