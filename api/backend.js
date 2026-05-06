@@ -103,7 +103,6 @@ export default async function handler(req, res) {
             updates[`users/${phone}/balance`] = currentBal - cst; 
             updates[`users/${phone}/premium`] = true;
             updates[`users/${phone}/advancedUI`] = true; 
-            // Handles any custom duration passed from admin or frontend
             updates[`users/${phone}/premiumExpiry`] = Date.now() + Number(duration); 
             await update(ref(db), updates);
             return res.json({ data: "Success" });
@@ -116,6 +115,7 @@ export default async function handler(req, res) {
             if(data.advancedUI !== undefined) updates[`users/${data.phone}/advancedUI`] = data.advancedUI;
             if(data.accentColor !== undefined) updates[`users/${data.phone}/accentColor`] = data.accentColor;
             if(data.customUserTag !== undefined) updates[`users/${data.phone}/customUserTag`] = data.customUserTag;
+            if(data.colorfulMode !== undefined) updates[`users/${data.phone}/colorfulMode`] = data.colorfulMode;
             await update(ref(db), updates);
             return res.json({ data: "Success" });
         }
@@ -127,20 +127,13 @@ export default async function handler(req, res) {
 
         if (action === 'SET_CUSTOM_API') {
             const { phone, newKey } = data;
+            if (!newKey || /\s/.test(newKey)) throw new Error("Invalid API Key! Spaces are not allowed.");
             
-            if (!newKey || /\s/.test(newKey)) {
-                throw new Error("Invalid API Key! Spaces are not allowed.");
-            }
-            
-            const usersRef = ref(db, 'users');
-            const usersSnap = await get(usersRef);
+            const usersSnap = await get(ref(db, 'users'));
             let exists = false;
-            
             if(usersSnap.exists()){
                 usersSnap.forEach(u => {
-                    if(u.val().apiKey === newKey && u.key !== phone) {
-                        exists = true;
-                    }
+                    if(u.val().apiKey === newKey && u.key !== phone) exists = true;
                 });
             }
             if(exists) throw new Error("This API Key is already taken by someone else!");
@@ -181,21 +174,9 @@ export default async function handler(req, res) {
             if (userData.premium && userData.premiumExpiry) {
                 if (Date.now() > Number(userData.premiumExpiry)) {
                     let newKey = 'LP-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
-                    
-                    userData.premium = false;
-                    userData.premiumExpiry = null;
-                    userData.theme = null;
-                    userData.tag = null;
-                    userData.advancedUI = false;
-                    userData.accentColor = null;
-                    userData.customUserTag = null;
-                    userData.privacyMode = false; 
-                    userData.apiKey = newKey; 
-                    
+                    userData = { ...userData, premium: false, premiumExpiry: null, theme: null, tag: null, advancedUI: false, accentColor: null, customUserTag: null, privacyMode: false, apiKey: newKey };
                     await update(ref(db, `users/${data.phone}`), { 
-                        premium: false, premiumExpiry: null, theme: null, tag: null, 
-                        advancedUI: false, accentColor: null, customUserTag: null, 
-                        privacyMode: false, apiKey: newKey 
+                        premium: false, premiumExpiry: null, theme: null, tag: null, advancedUI: false, accentColor: null, customUserTag: null, privacyMode: false, apiKey: newKey 
                     });
                 }
             }
@@ -254,16 +235,25 @@ export default async function handler(req, res) {
             let amt = Number(data.amount) || 0;
             if (data.amount !== undefined && amt <= 0) throw new Error("Amount must be greater than zero!");
 
-            const uSnap = await get(ref(db, `users/${data.sender}`));
+            // Optimization: Parallel database reads for sender and receiver to reduce server lag
+            const [uSnap, rSnap] = await Promise.all([
+                get(ref(db, `users/${data.sender}`)),
+                (data.mode === 'SEND' || data.mode === 'GHOST_SEND') && data.receiver 
+                    ? get(ref(db, `users/${data.receiver}`)) 
+                    : Promise.resolve(null)
+            ]);
+
             if (!uSnap.exists()) throw new Error("User not found!");
             
             let sBal = Number(uSnap.val().balance) || 0;
             let sKeeper = Number(uSnap.val().keeperBalance) || 0;
             let isPremium = uSnap.val().premium === true;
+            let senderName = uSnap.val().name || "User";
+            let statusLabel = isPremium ? "(Premium)" : "(Normal)";
 
             // Zero Tax/Maintenance fees for Premium Users
             if (data.mode === 'DEPOSIT_FEE' && isPremium) {
-                return res.json({ data: "Exempt from fees" }); 
+                return res.json({ data: "Exempt from fees", serverResponse: { senderName, statusLabel } }); 
             }
 
             if (['SEND', 'GHOST_SEND', 'WITHDRAW', 'DEPOSIT_FEE', 'KEEPER_LOCK'].includes(data.mode)) {
@@ -274,18 +264,12 @@ export default async function handler(req, res) {
             }
 
             const updates = {};
-            if (data.mode === 'SEND') { 
-                const rSnap = await get(ref(db, `users/${data.receiver}`));
+            if (data.mode === 'SEND' || data.mode === 'GHOST_SEND') { 
+                if (!rSnap || !rSnap.exists()) throw new Error("Receiver not found!");
                 let rBal = Number(rSnap.val().balance) || 0;
                 updates[`users/${data.sender}/balance`] = sBal - amt; 
                 updates[`users/${data.receiver}/balance`] = rBal + amt; 
-            } 
-            else if (data.mode === 'GHOST_SEND') { 
-                const rSnap = await get(ref(db, `users/${data.receiver}`));
-                let rBal = Number(rSnap.val().balance) || 0;
-                updates[`users/${data.sender}/balance`] = sBal - amt; 
-                updates[`users/${data.receiver}/balance`] = rBal + amt; 
-                if (data.txn) {
+                if (data.mode === 'GHOST_SEND' && data.txn) {
                     data.txn.receiverId = "GHOST_HIDDEN"; 
                 }
             }
@@ -298,8 +282,17 @@ export default async function handler(req, res) {
             else if (data.mode === 'KEEPER_WITHDRAW') { updates[`users/${data.sender}/keeperBalance`] = sKeeper - amt; updates[`users/${data.sender}/balance`] = sBal + amt; } 
             else if (data.mode === 'GAME_WIN' || data.mode === 'GAME_REFUND' || data.mode === 'DEPOSIT') { updates[`users/${data.sender}/balance`] = sBal + amt; }
             
-            if(data.txn) updates[`transactions/${data.txn.id}`] = data.txn;
-            await update(ref(db), updates); return res.json({ data: "Success" });
+            if(data.txn) {
+                data.txn.senderName = senderName;
+                data.txn.senderStatus = statusLabel;
+                updates[`transactions/${data.txn.id}`] = data.txn;
+            }
+            await update(ref(db), updates); 
+            
+            return res.json({ 
+                data: "Success", 
+                serverResponse: { message: "Payment processed successfully.", senderName, statusLabel }
+            });
         }
 
         if (action === 'BULK_PAY') {
@@ -312,16 +305,34 @@ export default async function handler(req, res) {
             let sBal = Number(snap.val().balance) || 0;
             if (!snap.exists() || sBal < total) throw new Error("Insufficient Balance!");
 
+            let isPremium = snap.val().premium === true;
+            let senderName = snap.val().name || "User";
+            let statusLabel = isPremium ? "(Premium)" : "(Normal)";
+
             const updates = { [`users/${data.sender}/balance`]: sBal - total };
             
-            for(let num of data.receivers) {
-                const rSnap = await get(ref(db, `users/${num}`));
+            // Optimization: Parallel read for all bulk receivers
+            const receiverSnaps = await Promise.all(data.receivers.map(num => get(ref(db, `users/${num}`))));
+
+            for(let i = 0; i < data.receivers.length; i++) {
+                let num = data.receivers[i];
+                let rSnap = receiverSnaps[i];
                 let rBal = rSnap.exists() ? Number(rSnap.val().balance) || 0 : 0;
                 updates[`users/${num}/balance`] = rBal + amt;
                 let txnId = 'TXN' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
-                updates[`transactions/${txnId}`] = { id: txnId, type: 'out', title: 'Bulk Send', amount: amt, status: 'Success', date: data.date, timestamp: Date.now(), icon: 'fa-paper-plane', color: 'yellow', name: 'User', number: num, senderId: data.sender, receiverId: num };
+                updates[`transactions/${txnId}`] = { 
+                    id: txnId, type: 'out', title: 'Bulk Send', amount: amt, status: 'Success', 
+                    date: data.date, timestamp: Date.now(), icon: 'fa-paper-plane', color: 'yellow', 
+                    name: 'User', number: num, senderId: data.sender, receiverId: num,
+                    senderName: senderName, senderStatus: statusLabel 
+                };
             }
-            await update(ref(db), updates); return res.json({ data: "Success" });
+            await update(ref(db), updates); 
+            
+            return res.json({ 
+                data: "Success",
+                serverResponse: { message: "Bulk payment processed.", senderName, statusLabel }
+            });
         }
 
         if (action === 'CREATE_LIFAFA') {
