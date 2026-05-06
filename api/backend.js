@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getDatabase, ref, get, set, update, runTransaction } from "firebase/database";
 
 const firebaseConfig = {
@@ -11,7 +11,8 @@ const firebaseConfig = {
   appId: "1:939533015657:web:686447e1ba145e3c74a0f8"
 };
 
-const app = initializeApp(firebaseConfig);
+// Fix: Prevent Firebase from crashing on serverless hot-reloads/re-executions
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getDatabase(app);
 
 export default async function handler(req, res) {
@@ -94,17 +95,38 @@ export default async function handler(req, res) {
             const { phone, duration, cost } = data;
             const uSnap = await get(ref(db, `users/${phone}`));
             if (!uSnap.exists()) throw new Error("User not found!");
-            let currentBal = Number(uSnap.val().balance) || 0;
+            
+            let userVal = uSnap.val();
+            let currentBal = Number(userVal.balance) || 0;
             let cst = Number(cost) || 0;
             
             if (currentBal < cst) throw new Error("Insufficient Balance!");
+            
+            // Fix: Create a transaction record so the app actually syncs the purchase event
+            let txnId = 'TXN' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
             
             const updates = {};
             updates[`users/${phone}/balance`] = currentBal - cst; 
             updates[`users/${phone}/premium`] = true;
             updates[`users/${phone}/advancedUI`] = true; 
-            // Handles any custom duration passed from admin or frontend
             updates[`users/${phone}/premiumExpiry`] = Date.now() + Number(duration); 
+            
+            updates[`transactions/${txnId}`] = {
+                id: txnId,
+                type: 'out',
+                title: 'Premium Subscription',
+                amount: cst,
+                status: 'Success',
+                date: new Date().toLocaleString(),
+                timestamp: Date.now(),
+                icon: 'fa-crown',
+                color: 'yellow',
+                name: 'System',
+                number: 'N/A',
+                senderId: phone,
+                receiverId: 'SYSTEM'
+            };
+
             await update(ref(db), updates);
             return res.json({ data: "Success" });
         }
@@ -215,7 +237,7 @@ export default async function handler(req, res) {
                         } 
                         else if (t.receiverId === data.phone) { 
                             adaptedTxn.type = 'in'; 
-                            if (t.senderId === 'SYSTEM' || t.senderId === data.phone || t.title.includes('Lifafa') || t.title.includes('Deposit via') || t.title.includes('Game') || t.title.includes('Gift') || t.title.includes('Maintenance Fee')) {
+                            if (t.senderId === 'SYSTEM' || t.senderId === data.phone || t.title.includes('Lifafa') || t.title.includes('Deposit via') || t.title.includes('Game') || t.title.includes('Gift') || t.title.includes('Maintenance Fee') || t.title.includes('Premium Subscription')) {
                                 adaptedTxn.title = t.title;
                             } else {
                                 adaptedTxn.title = t.isApi ? `API Payment Received from ${sName}` : `Received from ${sName}`; 
