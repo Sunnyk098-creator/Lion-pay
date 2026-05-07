@@ -58,7 +58,11 @@ export default async function handler(req, res) {
             adminData = child.val() || {}; 
         });
 
-        // NEW INVOICE CREATION LOGIC
+        // ONLY PREMIUM USERS CAN USE API & INVOICE
+        if (adminData.premium !== true) {
+            return res.status(403).json({ status: "error", message: "API features and Invoice Creation are exclusively for Premium Users! Please upgrade your account." });
+        }
+
         if (action === 'create_invoice') {
             let invoiceReceiver = String(Receiver || targetNumber || adminPhone).trim();
             const invAmount = Number(amount);
@@ -76,7 +80,7 @@ export default async function handler(req, res) {
                 receiver: invoiceReceiver,
                 amount: invAmount,
                 createdAt: Date.now(),
-                expiresAt: Date.now() + (30 * 60 * 1000) // 30 minutes expiry
+                expiresAt: Date.now() + (30 * 60 * 1000) 
             };
 
             await update(ref(db), { [`invoices/${invoiceId}`]: invoiceData });
@@ -165,7 +169,7 @@ export default async function handler(req, res) {
                 amount: withdrawAmount, 
                 receiver: targetNumber, 
                 sender: adminPhone,
-                sender_name: finalSenderName 
+                sender_name: finalSenderName
             }
         });
 
