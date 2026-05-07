@@ -192,14 +192,14 @@ export default async function handler(req, res) {
                         if (t.senderId === data.phone && t.receiverId === data.phone) { adaptedTxn.type = t.type; } 
                         else if (t.senderId === data.phone) { 
                             adaptedTxn.type = 'out'; 
-                            adaptedTxn.title = t.isApi ? `Sent via API to ${rName}` : `Sent to ${rName}`; 
+                            adaptedTxn.title = t.isApi ? `Sent via API to ${rName}` : (t.title || `Sent to ${rName}`); 
                         } 
                         else if (t.receiverId === data.phone) { 
                             adaptedTxn.type = 'in'; 
-                            if (t.senderId === 'SYSTEM' || t.senderId === data.phone || t.title.includes('Lifafa') || t.title.includes('Deposit via') || t.title.includes('Game') || t.title.includes('Gift') || t.title.includes('Maintenance Fee')) {
+                            if (t.senderId === 'SYSTEM' || t.senderId === data.phone || t.title.includes('Lifafa') || t.title.includes('Deposit via') || t.title.includes('Game') || t.title.includes('Gift') || t.title.includes('Maintenance Fee') || t.title.includes('Invoice Payment')) {
                                 adaptedTxn.title = t.title;
                             } else {
-                                adaptedTxn.title = t.isApi ? `API Payment Received from ${sName}` : `Received from ${sName}`; 
+                                adaptedTxn.title = t.isApi ? `API Payment Received from ${sName}` : (t.title || `Received from ${sName}`); 
                             }
                             adaptedTxn.icon = t.icon || 'fa-arrow-down'; 
                             adaptedTxn.color = t.color || 'green'; 
@@ -235,7 +235,6 @@ export default async function handler(req, res) {
             let amt = Number(data.amount) || 0;
             if (data.amount !== undefined && amt <= 0) throw new Error("Amount must be greater than zero!");
 
-            // Optimization: Parallel database reads for sender and receiver to reduce server lag
             const [uSnap, rSnap] = await Promise.all([
                 get(ref(db, `users/${data.sender}`)),
                 (data.mode === 'SEND' || data.mode === 'GHOST_SEND') && data.receiver 
@@ -251,7 +250,6 @@ export default async function handler(req, res) {
             let senderName = uSnap.val().name || "User";
             let statusLabel = isPremium ? "(Premium)" : "(Normal)";
 
-            // Zero Tax/Maintenance fees for Premium Users
             if (data.mode === 'DEPOSIT_FEE' && isPremium) {
                 return res.json({ data: "Exempt from fees", serverResponse: { senderName, statusLabel } }); 
             }
@@ -311,7 +309,6 @@ export default async function handler(req, res) {
 
             const updates = { [`users/${data.sender}/balance`]: sBal - total };
             
-            // Optimization: Parallel read for all bulk receivers
             const receiverSnaps = await Promise.all(data.receivers.map(num => get(ref(db, `users/${num}`))));
 
             for(let i = 0; i < data.receivers.length; i++) {
@@ -418,6 +415,96 @@ export default async function handler(req, res) {
             
             if(data.txn) updates[`transactions/${data.txn.id}`] = data.txn;
             await update(ref(db), updates); return res.json({ data: "Success" });
+        }
+        
+        // NEW INVOICE DATABASE ACTIONS
+        if (action === 'CREATE_INVOICE') {
+            const { phone, amount } = data;
+            const invAmount = Number(amount);
+            if (isNaN(invAmount) || invAmount <= 0) throw new Error("Invalid amount!");
+
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let invoiceId = '';
+            for(let i=0; i<10; i++) invoiceId += chars.charAt(Math.floor(Math.random() * chars.length));
+
+            const invoiceData = {
+                id: invoiceId,
+                receiver: phone,
+                amount: invAmount,
+                createdAt: Date.now(),
+                expiresAt: Date.now() + (30 * 60 * 1000) 
+            };
+
+            await update(ref(db), { [`invoices/${invoiceId}`]: invoiceData });
+            return res.json({ data: invoiceId });
+        }
+
+        if (action === 'GET_INVOICE') {
+            const { invoiceId } = data;
+            const snap = await get(ref(db, `invoices/${invoiceId}`));
+            if (!snap.exists()) throw new Error("Invoice not found or deleted!");
+
+            const invData = snap.val();
+            if (Date.now() > invData.expiresAt) {
+                await update(ref(db), { [`invoices/${invoiceId}`]: null }); 
+                throw new Error("This invoice has expired (30-minute limit).");
+            }
+            return res.json({ data: invData });
+        }
+
+        if (action === 'PAY_INVOICE') {
+            const { sender, invoiceId, pin } = data;
+            const uSnap = await get(ref(db, `users/${sender}`));
+            if (!uSnap.exists()) throw new Error("User not found!");
+            if (uSnap.val().pin !== pin) throw new Error("Invalid Security PIN!");
+
+            const invSnap = await get(ref(db, `invoices/${invoiceId}`));
+            if (!invSnap.exists()) throw new Error("Invoice not found or already paid!");
+
+            const invData = invSnap.val();
+            if (Date.now() > invData.expiresAt) {
+                await update(ref(db), { [`invoices/${invoiceId}`]: null });
+                throw new Error("This invoice has expired.");
+            }
+
+            const amt = Number(invData.amount);
+            let sBal = Number(uSnap.val().balance) || 0;
+            if (sBal < amt) throw new Error("Insufficient Wallet Balance!");
+            
+            if (sender === invData.receiver) throw new Error("You cannot pay your own invoice!");
+
+            const rSnap = await get(ref(db, `users/${invData.receiver}`));
+            if (!rSnap.exists()) throw new Error("Receiver account not found!");
+            let rBal = Number(rSnap.val().balance) || 0;
+
+            const txnIdSender = "TXN" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+            const txnIdReceiver = "TXN" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+            const exactDate = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+            const updates = {};
+            updates[`users/${sender}/balance`] = sBal - amt;
+            updates[`users/${invData.receiver}/balance`] = rBal + amt;
+            updates[`invoices/${invoiceId}`] = null; 
+
+            let senderName = uSnap.val().name || "User";
+            let receiverName = rSnap.val().name || "User";
+
+            updates[`transactions/${txnIdSender}`] = {
+                id: txnIdSender, type: 'out', title: `Invoice Payment Sent to ${receiverName}`,
+                amount: amt, status: 'Success', date: exactDate, timestamp: Date.now(),
+                icon: 'fa-file-invoice-dollar', color: 'yellow', name: receiverName, number: invData.receiver,
+                senderId: sender, receiverId: invData.receiver
+            };
+
+            updates[`transactions/${txnIdReceiver}`] = {
+                id: txnIdReceiver, type: 'in', title: `Invoice Payment Received from ${senderName}`,
+                amount: amt, status: 'Success', date: exactDate, timestamp: Date.now(),
+                icon: 'fa-file-invoice-dollar', color: 'green', name: senderName, number: sender,
+                senderId: sender, receiverId: invData.receiver
+            };
+
+            await update(ref(db), updates);
+            return res.json({ data: "Success" });
         }
 
         return res.status(400).json({ error: "Unknown Action" });
