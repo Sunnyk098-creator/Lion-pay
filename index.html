@@ -39,6 +39,7 @@
         }
         
         html.dark-mode body { --theme-bg: #0f172a; --theme-text: #f8fafc; --theme-card: #1e293b; background-color: var(--theme-bg); color: var(--theme-text); }
+        /* Fixed Bug: Removed !important from color so accent-text can override it properly in dark mode */
         html.dark-mode .theme-card { background-color: var(--theme-card) !important; border-color: rgba(255,255,255,0.05) !important; }
         
         body { background-color: var(--theme-bg); color: var(--theme-text); transition: background-color 0.3s ease, color 0.3s ease; }
@@ -78,6 +79,7 @@
         .crown-icon { display: none; position: absolute; top: -40px; left: 50%; margin-left: -24px; font-size: 3rem; color: #fbbf24; animation: popInCrown 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4)); z-index: 20; }
         .crown-icon.show { display: block; }
 
+        /* Optimized Performance: Added will-change and transform to premium gradients */
         html.premium-mode body {
             background: linear-gradient(135deg, var(--premium-grad-1), var(--premium-grad-2), var(--theme-bg));
             background-size: 400% 400%;
@@ -118,6 +120,7 @@
         .animate-scanline { animation: scanline 2.5s ease-in-out infinite; background: var(--accent-main); box-shadow: 0 0 15px 3px var(--accent-glow); }
         .premium-scanner { border-color: var(--accent-main) !important; box-shadow: 0 0 30px var(--accent-glow); }
 
+        /* COLORFUL MODE CSS */
         html.colorful-mode #grid-container-actions button:nth-child(1) div { background-color: #ef4444; color: white; border: none; box-shadow: 0 4px 15px rgba(239,68,68,0.4); }
         html.colorful-mode #grid-container-actions button:nth-child(2) div { background-color: #3b82f6; color: white; border: none; box-shadow: 0 4px 15px rgba(59,130,246,0.4); }
         html.colorful-mode #grid-container-actions button:nth-child(3) div { background-color: #10b981; color: white; border: none; box-shadow: 0 4px 15px rgba(16,185,129,0.4); }
@@ -135,41 +138,6 @@
     </style>
 </head>
 <body class="font-sans pb-20 text-gray-800 transition-all duration-500">
-
-    <div id="invoice-payment-page" class="fixed inset-0 theme-card z-[2000] hidden flex-col items-center p-6 overflow-y-auto">
-        <header class="w-full text-center py-6">
-            <h1 class="text-3xl font-black italic tracking-tight accent-text">LION PAY</h1>
-            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Invoice Payment System</p>
-        </header>
-
-        <div class="w-full max-w-sm theme-card rounded-3xl p-8 shadow-2xl border border-gray-100 text-center mt-4">
-            <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-100">
-                <i class="fas fa-file-invoice-dollar text-3xl accent-text"></i>
-            </div>
-            
-            <p class="text-xs font-bold text-gray-400 uppercase mb-1">Amount to Pay</p>
-            <h2 class="text-5xl font-black mb-8" id="inv-pay-amount">₹0.00</h2>
-
-            <div class="bg-gray-50 rounded-2xl p-4 mb-8 text-left border border-gray-100 theme-card">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-[10px] font-bold text-gray-400">YOUR PHONE</span>
-                    <span class="text-xs font-black" id="inv-pay-my-phone">...</span>
-                </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-[10px] font-bold text-gray-400">AVAILABLE BALANCE</span>
-                    <span class="text-xs font-black accent-text">₹<span id="inv-pay-my-bal">0.00</span></span>
-                </div>
-            </div>
-
-            <form onsubmit="event.preventDefault(); processInvoicePay();">
-                <label class="block text-[10px] font-bold text-gray-400 text-left mb-2 uppercase ml-1">Enter Security Pin</label>
-                <input type="password" id="inv-pay-pin" required maxlength="4" placeholder="••••" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-center tracking-[0.5em] font-black text-2xl mb-8 focus:outline-none focus-accent theme-card shadow-inner">
-                
-                <button type="submit" id="btn-inv-pay" class="btn-animate w-full accent-bg text-white font-black py-5 rounded-2xl shadow-lg text-lg tracking-wide">SEND PAYMENT</button>
-                <button type="button" onclick="closeInvoicePage()" class="mt-6 text-gray-400 text-xs font-bold hover:text-red-500 transition-colors">Cancel & Back to App</button>
-            </form>
-        </div>
-    </div>
 
     <div id="public-lifafa-wrapper" class="fixed inset-0 theme-card z-[1000] hidden flex-col items-center justify-center p-6 text-center overflow-y-auto">
         <div class="w-20 h-20 bg-amber-50 text-amber-500 rounded-3xl mx-auto flex items-center justify-center text-4xl mb-6 shadow-inner border border-amber-100"><i class="fas fa-envelope-open-text"></i></div>
@@ -233,7 +201,7 @@
         </div>
     </div>
 
-    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl z-[3000] hidden opacity-0 transition-opacity duration-300 flex items-center gap-2 border accent-border">
+    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl z-[300] hidden opacity-0 transition-opacity duration-300 flex items-center gap-2 border accent-border">
         <i class="fas fa-info-circle accent-text"></i> <span id="toastMsg" class="font-medium">Message</span>
     </div>
 
@@ -336,7 +304,7 @@
         </div>
         <div class="flex-1 overflow-y-auto py-4 theme-card">
             <ul class="space-y-1">
-                <li><a href="#" onclick="handlePremiumFeature('api'); toggleSidebar()" class="block px-6 py-3 hover:bg-gray-100 transition-colors font-semibold"><i class="fas fa-code w-6"></i> API System</a></li>
+                <li><a href="#" onclick="showView('api'); toggleSidebar()" class="block px-6 py-3 hover:bg-gray-100 transition-colors font-semibold"><i class="fas fa-code w-6"></i> API System</a></li>
                 <li><a href="#" onclick="showAuthView('reset-pin'); document.getElementById('auth-wrapper').classList.remove('hidden'); toggleSidebar()" class="block px-6 py-3 hover:bg-gray-100 transition-colors font-semibold"><i class="fas fa-key w-6"></i> Change Security PIN</a></li>
                 <li><a href="#" onclick="showView('game'); toggleSidebar()" class="block px-6 py-3 hover:bg-gray-100 transition-colors font-semibold"><i class="fas fa-gamepad w-6"></i> Games</a></li>
                 <li><div class="h-px bg-gray-100 my-2 mx-4"></div></li>
@@ -385,16 +353,15 @@
             <div class="theme-card rounded-t-3xl pt-6 px-4 pb-6 shadow-sm mt-2">
                 <div class="grid grid-cols-4 gap-y-6 gap-x-2" id="grid-container-actions">
                     <button onclick="showView('send')" class="btn-animate flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl bg-gray-50 theme-card flex items-center justify-center text-xl shadow-sm border border-gray-100 accent-text"><i class="fas fa-paper-plane"></i></div><span class="text-[10px] font-bold text-gray-600">Send</span></button>
-                    <button onclick="handlePremiumFeature('invoice-create')" class="btn-animate flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl bg-gray-50 theme-card flex items-center justify-center text-xl shadow-sm border border-gray-100 accent-text"><i class="fas fa-file-invoice"></i></div><span class="text-[10px] font-bold text-gray-600">Invoice</span></button>
                     <button onclick="showView('bulk')" class="btn-animate flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl bg-gray-50 theme-card flex items-center justify-center text-xl shadow-sm border border-gray-100 accent-text"><i class="fas fa-users"></i></div><span class="text-[10px] font-bold text-gray-600">Bulk</span></button>
                     <button onclick="showView('add')" class="btn-animate flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl bg-gray-50 theme-card flex items-center justify-center text-xl shadow-sm border border-gray-100 accent-text"><i class="fas fa-plus"></i></div><span class="text-[10px] font-bold text-gray-600">Add</span></button>
-                    
                     <button onclick="showView('withdraw')" class="btn-animate flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl bg-gray-50 theme-card flex items-center justify-center text-xl shadow-sm border border-gray-100 accent-text"><i class="fas fa-arrow-up"></i></div><span class="text-[10px] font-bold text-gray-600">Withdraw</span></button>
+                    
                     <button onclick="showView('lifafa')" class="btn-animate flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl bg-gray-50 theme-card flex items-center justify-center text-xl shadow-sm border border-gray-100 accent-text"><i class="fas fa-envelope-open-text"></i></div><span class="text-[10px] font-bold text-gray-600">Lifafa</span></button>
                     <button onclick="showView('gift')" class="btn-animate flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl bg-gray-50 theme-card flex items-center justify-center text-xl shadow-sm border border-gray-100 accent-text"><i class="fas fa-gift"></i></div><span class="text-[10px] font-bold text-gray-600">Gift Code</span></button>
-                    <button onclick="handlePremiumFeature('api')" class="btn-animate flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl bg-gray-50 theme-card flex items-center justify-center text-xl shadow-sm border border-gray-100 accent-text"><i class="fas fa-code"></i></div><span class="text-[10px] font-bold text-gray-600">API Keys</span></button>
-                    
+                    <button onclick="showView('api')" class="btn-animate flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl bg-gray-50 theme-card flex items-center justify-center text-xl shadow-sm border border-gray-100 accent-text"><i class="fas fa-code"></i></div><span class="text-[10px] font-bold text-gray-600">API Keys</span></button>
                     <button onclick="showView('txn')" class="btn-animate flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl bg-gray-50 theme-card flex items-center justify-center text-xl shadow-sm border border-gray-100 accent-text"><i class="fas fa-search-dollar"></i></div><span class="text-[10px] font-bold text-gray-600">TXN Find</span></button>
+                    
                     <button id="btn-premium-menu" onclick="showView('premium')" class="btn-animate flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl bg-gray-50 theme-card flex items-center justify-center text-xl shadow-sm border border-gray-100 text-yellow-500"><i class="fas fa-crown"></i></div><span class="text-[10px] font-bold text-gray-600">Premium</span></button>
                     <button id="btn-theme-menu" onclick="showView('themes')" class="hidden btn-animate flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl bg-gray-50 theme-card flex items-center justify-center text-xl shadow-sm border border-gray-100 accent-text"><i class="fas fa-palette"></i></div><span class="text-[10px] font-bold text-gray-600">Settings</span></button>
                     <button id="btn-tags-menu" onclick="showView('tags')" class="hidden btn-animate flex flex-col items-center gap-2"><div class="w-14 h-14 rounded-2xl bg-gray-50 theme-card flex items-center justify-center text-xl shadow-sm border border-gray-100 accent-text"><i class="fas fa-tags"></i></div><span class="text-[10px] font-bold text-gray-600">Tags</span></button>
@@ -415,115 +382,94 @@
             </div>
         </div>
 
-        <div id="view-tags" class="view-section">
-            <header class="flex items-center p-4 theme-card shadow-sm sticky top-0 z-30">
-                <button onclick="showView('home')" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100"><i class="fas fa-arrow-left"></i></button>
-                <h1 class="ml-4 text-[16px] font-black tracking-wide">MY PROFILE TAG</h1>
-            </header>
-            
-            <div class="p-8 text-center mt-6">
-                <div class="w-24 h-24 bg-gray-50 theme-card rounded-3xl mx-auto flex items-center justify-center text-4xl mb-6 shadow-inner border border-gray-100 accent-text"><i class="fas fa-tag"></i></div>
-                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Current Active Tag</h3>
-                <div id="display-current-tag" class="inline-block px-8 py-4 bg-gray-900 text-white rounded-2xl text-2xl font-black italic shadow-xl tracking-wider">Member</div>
-                <p class="text-xs text-gray-400 mt-8 font-medium max-w-xs mx-auto leading-relaxed border-t border-gray-100 pt-6">Profile tags are assigned by the system or unlocked via special events. Users cannot manually change tags.</p>
-            </div>
-        </div>
-
-        <div id="view-api" class="view-section">
-            <header class="flex items-center p-4 theme-card shadow-sm sticky top-0 z-30">
-                <button onclick="showView('home')" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-200"><i class="fas fa-arrow-left text-gray-700"></i></button><h1 class="ml-4 text-[16px] font-black tracking-wide">API SETTINGS</h1>
-            </header>
-            <div class="p-4 space-y-4">
-                <div class="theme-card rounded-2xl p-5 shadow-sm border border-gray-100">
-                    <p class="text-xs font-bold text-gray-400 mb-4 uppercase"><i class="fas fa-link accent-text"></i> PAYMENT API URL</p>
-                    <div class="bg-slate-900 rounded-xl p-5 mb-6 relative shadow-lg">
-                        <p class="text-[10px] text-gray-400 font-bold mb-2 tracking-wider">FULL API ENDPOINT</p>
-                        <p class="text-sm font-mono text-gray-300 break-all leading-relaxed" id="ui-api-url-full">
-                            https://lion-pay.vercel.app/api?key=<span class="accent-text" id="ui-api-key-url">LP-PENDING</span>&paytm=<span class="text-green-400">{number}</span>&amount=<span class="text-green-400">{amount}</span>
-                        </p>
-                    </div>
-                </div>
-
-                <div class="theme-card rounded-2xl p-5 shadow-sm border border-gray-100">
-                    <p class="text-xs font-bold text-gray-400 mb-4 uppercase"><i class="fas fa-file-invoice accent-text"></i> Invoice Generate API</p>
-                    <div class="bg-slate-900 rounded-xl p-5 shadow-lg overflow-x-auto mb-4">
-                        <p class="text-[10px] text-yellow-500 font-bold mb-2 uppercase">Create Link Endpoint</p>
-                        <p class="text-xs font-mono text-gray-300 whitespace-nowrap" id="ui-api-invoice-url">
-                            https://lion-pay.vercel.app/api?key=LP-PENDING&action=create_invoice&Receiver={number}&amount={amount}
-                        </p>
-                    </div>
-                    <p class="text-[9.5px] text-gray-400 font-medium">Note: Generates a unique 10-digit invoice link valid for 30 minutes. The response will contain the `invoice_link` for your frontend.</p>
-                </div>
-
-                <div class="theme-card rounded-2xl p-5 shadow-sm border border-gray-100">
-                    <p class="text-xs font-bold text-gray-400 mb-4 uppercase"><i class="fas fa-key accent-text"></i> YOUR API KEY</p>
-                    <div class="theme-card rounded-xl p-4 flex justify-between items-center border border-gray-200 mb-5">
-                        <div>
-                            <p class="text-[10px] accent-text font-bold mb-1 tracking-wider">SECRET KEY</p>
-                            <p class="accent-text font-mono font-black tracking-widest text-lg" id="ui-api-key-display">LP-PENDING</p>
-                        </div>
-                    </div>
-                    <button onclick="regenerateApiKey()" class="btn-animate w-full border-2 accent-border accent-text font-bold py-3.5 rounded-xl">REGENERATE API KEY</button>
-                    
-                    <div id="premium-api-edit" class="hidden mt-4 pt-4 border-t border-gray-100">
-                        <p class="text-xs font-bold text-gray-400 mb-2 uppercase"><i class="fas fa-crown text-yellow-500"></i> CUSTOM API KEY (PREMIUM)</p>
-                        <div class="flex gap-2">
-                            <input type="text" id="custom-api-input" placeholder="e.g. MY-SHOP-KEY" onkeydown="return event.keyCode !== 32" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus-accent font-mono theme-card">
-                            <button onclick="saveCustomApiKey()" class="accent-bg btn-animate text-white px-4 py-2 rounded-xl font-bold text-sm">Save</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="view-invoice-create" class="view-section min-h-screen">
-            <header class="flex items-center p-4 theme-card shadow-sm sticky top-0 z-30">
-                <button onclick="showView('home')" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"><i class="fas fa-arrow-left"></i></button>
-                <h1 class="ml-4 text-[16px] font-black tracking-wide">CREATE INVOICE</h1>
-            </header>
-            
-            <div class="p-4 mt-4">
-                <form id="form-invoice-create" onsubmit="event.preventDefault(); processInvoiceCreate();" class="theme-card rounded-3xl p-6 shadow-sm border border-gray-100 text-center">
-                    <div class="w-16 h-16 bg-blue-50 text-blue-500 rounded-full mx-auto flex items-center justify-center text-3xl mb-4"><i class="fas fa-file-invoice-dollar"></i></div>
-                    <p class="text-xs text-gray-500 mb-6 font-medium">Create a 30-minute valid payment link. Anyone with the link can pay you directly.</p>
-                    
-                    <label class="block text-[10px] font-bold text-gray-400 mb-2 text-left uppercase ml-1">Invoice Amount (₹)</label>
-                    <input type="number" id="inv-create-amt" required min="1" placeholder="0.00" class="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-4 text-3xl font-black mb-8 focus-accent theme-card text-center text-gray-800 tracking-tight">
-                    
-                    <button type="submit" id="btn-inv-create-submit" class="btn-animate w-full accent-bg text-white font-black py-4 rounded-xl shadow-lg tracking-wide">GENERATE PAYMENT LINK</button>
-                </form>
-
-                <div id="invoice-result-box" class="hidden mt-6 theme-card rounded-3xl p-6 border-2 border-dashed accent-border text-center bg-gray-50">
-                    <div class="w-10 h-10 bg-green-100 text-green-500 rounded-full mx-auto flex items-center justify-center text-xl mb-3"><i class="fas fa-check"></i></div>
-                    <p class="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-wider">Your Unique Invoice Link</p>
-                    <div class="bg-white p-4 rounded-xl text-[11px] font-mono break-all mb-4 border border-gray-200 shadow-sm text-gray-600" id="inv-generated-link">...</div>
-                    <button type="button" onclick="copyText(document.getElementById('inv-generated-link').innerText)" class="btn-animate accent-bg text-white w-full py-3 rounded-xl font-bold text-sm shadow-md"><i class="fas fa-copy mr-2"></i> COPY LINK</button>
-                    <p class="text-[9px] text-red-400 mt-4 font-bold">⚠️ Valid for 30 minutes only.</p>
-                </div>
-            </div>
-        </div>
-
         <div id="view-premium" class="view-section bg-gradient-to-br from-[#3b82f6] via-[#8b5cf6] to-[#d946ef] min-h-screen text-white relative pb-32">
             <header class="flex items-center p-4 sticky top-0 z-30 bg-transparent">
                 <button onclick="showView('home')" class="w-10 h-10 flex items-center justify-center text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"><i class="fas fa-arrow-left"></i></button>
             </header>
+
             <div class="px-6 flex flex-col items-center text-center">
                 <i class="fas fa-star text-[80px] text-white drop-shadow-[0_0_25px_rgba(255,255,255,0.7)] mb-4 animate-pulse transform -rotate-12"></i>
                 <h1 class="text-3xl font-black mb-2 tracking-wide">Lion Premium</h1>
                 <p class="text-[13px] opacity-90 mb-6 max-w-xs font-medium leading-relaxed">Go beyond the limits and unlock dozens of exclusive features by subscribing to Lion Premium.</p>
             </div>
+
             <div class="bg-white text-gray-800 rounded-3xl mx-4 mb-4 overflow-hidden shadow-2xl theme-card">
                 <div id="plan-row-1year" class="plan-row p-4 border-b border-gray-100 flex items-center gap-4 cursor-pointer transition-colors" style="background:var(--accent-glow)" onclick="selectPremiumPlan('1year')">
                     <div class="w-6 h-6 rounded-full accent-bg text-white flex items-center justify-center text-xs check-icon shrink-0 shadow-inner"><i class="fas fa-check"></i></div>
-                    <div class="flex-1"><div class="flex items-center gap-2 mb-0.5"><span class="font-black text-[15px]">Annual</span><span class="accent-bg text-white text-[10px] px-2 py-0.5 rounded-full font-black">-16%</span></div><div class="text-xs text-gray-400 font-medium"><strike>₹360.00</strike> <span class="text-gray-800 font-bold ml-1">₹300.00 / year</span></div></div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-0.5">
+                            <span class="font-black text-[15px]">Annual</span>
+                            <span class="accent-bg text-white text-[10px] px-2 py-0.5 rounded-full font-black">-16%</span>
+                        </div>
+                        <div class="text-xs text-gray-400 font-medium"><strike>₹360.00</strike> <span class="text-gray-800 font-bold ml-1">₹300.00 / year</span></div>
+                    </div>
                     <div class="text-right text-xs font-bold text-gray-500">₹25.00/month</div>
                 </div>
-                <div id="plan-row-3months" class="plan-row p-4 border-b border-gray-100 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors" onclick="selectPremiumPlan('3months')"><div class="w-6 h-6 rounded-full border-2 border-gray-300 check-icon shrink-0"></div><div class="flex-1"><span class="font-black text-[15px]">Quarterly</span></div><div class="text-right text-xs font-bold text-gray-500">₹90.00/3 months</div></div>
-                <div id="plan-row-1month" class="plan-row p-4 border-b border-gray-100 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors" onclick="selectPremiumPlan('1month')"><div class="w-6 h-6 rounded-full border-2 border-gray-300 check-icon shrink-0"></div><div class="flex-1"><span class="font-black text-[15px]">Monthly</span></div><div class="text-right text-xs font-bold text-gray-500">₹30.00/month</div></div>
-                <div id="plan-row-3days" class="plan-row p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors" onclick="selectPremiumPlan('3days')"><div class="w-6 h-6 rounded-full border-2 border-gray-300 check-icon shrink-0"></div><div class="flex-1"><span class="font-black text-[15px]">Trial (3 Days)</span></div><div class="text-right text-xs font-bold text-gray-500">₹10.00/3 days</div></div>
+                <div id="plan-row-3months" class="plan-row p-4 border-b border-gray-100 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors" onclick="selectPremiumPlan('3months')">
+                    <div class="w-6 h-6 rounded-full border-2 border-gray-300 check-icon shrink-0"></div>
+                    <div class="flex-1"><span class="font-black text-[15px]">Quarterly</span></div>
+                    <div class="text-right text-xs font-bold text-gray-500">₹90.00/3 months</div>
+                </div>
+                <div id="plan-row-1month" class="plan-row p-4 border-b border-gray-100 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors" onclick="selectPremiumPlan('1month')">
+                    <div class="w-6 h-6 rounded-full border-2 border-gray-300 check-icon shrink-0"></div>
+                    <div class="flex-1"><span class="font-black text-[15px]">Monthly</span></div>
+                    <div class="text-right text-xs font-bold text-gray-500">₹30.00/month</div>
+                </div>
+                <div id="plan-row-3days" class="plan-row p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors" onclick="selectPremiumPlan('3days')">
+                    <div class="w-6 h-6 rounded-full border-2 border-gray-300 check-icon shrink-0"></div>
+                    <div class="flex-1"><span class="font-black text-[15px]">Trial (3 Days)</span></div>
+                    <div class="text-right text-xs font-bold text-gray-500">₹10.00/3 days</div>
+                </div>
             </div>
+
+            <div class="bg-white text-gray-800 rounded-3xl mx-4 mb-8 overflow-hidden shadow-2xl py-2 theme-card">
+                <div class="flex items-center gap-4 p-3 border-b border-gray-50">
+                    <div class="w-10 h-10 rounded-xl theme-card accent-text flex items-center justify-center shrink-0 text-lg shadow-sm border border-gray-200"><i class="fas fa-ghost"></i></div>
+                    <div class="flex-1"><h4 class="font-black text-[14px]">Ghost Transfer</h4><p class="text-[11px] text-gray-500 leading-tight font-medium mt-0.5">Send money without showing in receiver's history.</p></div>
+                </div>
+                <div class="flex items-center gap-4 p-3 border-b border-gray-50">
+                    <div class="w-10 h-10 rounded-xl theme-card accent-text flex items-center justify-center shrink-0 text-lg shadow-sm border border-gray-200"><i class="fas fa-eye-slash"></i></div>
+                    <div class="flex-1"><h4 class="font-black text-[14px]">Privacy Mode</h4><p class="text-[11px] text-gray-500 leading-tight font-medium mt-0.5">Hide balance & hide specific transactions from home.</p></div>
+                </div>
+                <div class="flex items-center gap-4 p-3 border-b border-gray-50">
+                    <div class="w-10 h-10 rounded-xl theme-card accent-text flex items-center justify-center shrink-0 text-lg shadow-sm border border-gray-200"><i class="fas fa-envelope"></i></div>
+                    <div class="flex-1"><h4 class="font-black text-[14px]">Premium Only Lifafa</h4><p class="text-[11px] text-gray-500 leading-tight font-medium mt-0.5">Create Lifafa that only Premium users can claim.</p></div>
+                </div>
+                <div class="flex items-center gap-4 p-3 border-b border-gray-50">
+                    <div class="w-10 h-10 rounded-xl theme-card accent-text flex items-center justify-center shrink-0 text-lg shadow-sm border border-gray-200"><i class="fas fa-palette"></i></div>
+                    <div class="flex-1"><h4 class="font-black text-[14px]">Colorful App Theme</h4><p class="text-[11px] text-gray-500 leading-tight font-medium mt-0.5">Unlock the special colorful gradient theme mode.</p></div>
+                </div>
+                
+                <div class="flex items-center gap-4 p-3 border-b border-gray-50">
+                    <div class="w-10 h-10 rounded-xl theme-card accent-text flex items-center justify-center shrink-0 text-lg shadow-sm border border-gray-200"><i class="fas fa-key"></i></div>
+                    <div class="flex-1"><h4 class="font-black text-[14px]">Custom API Key</h4><p class="text-[11px] text-gray-500 leading-tight font-medium mt-0.5">Set a personalized custom API key for your gateway.</p></div>
+                </div>
+                <div class="flex items-center gap-4 p-3 border-b border-gray-50">
+                    <div class="w-10 h-10 rounded-xl theme-card accent-text flex items-center justify-center shrink-0 text-lg shadow-sm border border-gray-200"><i class="fas fa-certificate"></i></div>
+                    <div class="flex-1"><h4 class="font-black text-[14px]">Premium Verified Badge</h4><p class="text-[11px] text-gray-500 leading-tight font-medium mt-0.5">Get a verified crown badge next to your profile.</p></div>
+                </div>
+                <div class="flex items-center gap-4 p-3 border-b border-gray-50">
+                    <div class="w-10 h-10 rounded-xl theme-card accent-text flex items-center justify-center shrink-0 text-lg shadow-sm border border-gray-200"><i class="fas fa-id-card"></i></div>
+                    <div class="flex-1"><h4 class="font-black text-[14px]">Custom ID & Tag Discount</h4><p class="text-[11px] text-gray-500 leading-tight font-medium mt-0.5">Huge discounts on Custom IDs & unique name tags.</p></div>
+                </div>
+                <div class="flex items-center gap-4 p-3 border-b border-gray-50">
+                    <div class="w-10 h-10 rounded-xl theme-card accent-text flex items-center justify-center shrink-0 text-lg shadow-sm border border-gray-200"><i class="fas fa-magic"></i></div>
+                    <div class="flex-1"><h4 class="font-black text-[14px]">Advanced Visual UI</h4><p class="text-[11px] text-gray-500 leading-tight font-medium mt-0.5">Animations, 3D glow effects, and a premium feel.</p></div>
+                </div>
+                <div class="flex items-center gap-4 p-3 border-b border-gray-50">
+                    <div class="w-10 h-10 rounded-xl theme-card accent-text flex items-center justify-center shrink-0 text-lg shadow-sm border border-gray-200"><i class="fas fa-headset"></i></div>
+                    <div class="flex-1"><h4 class="font-black text-[14px]">Priority Customer Support</h4><p class="text-[11px] text-gray-500 leading-tight font-medium mt-0.5">Faster help and priority ticket routing by admins.</p></div>
+                </div>
+                <div class="flex items-center gap-4 p-3">
+                    <div class="w-10 h-10 rounded-xl theme-card accent-text flex items-center justify-center shrink-0 text-lg shadow-sm border border-gray-200"><i class="fas fa-ban"></i></div>
+                    <div class="flex-1"><h4 class="font-black text-[14px]">No Service Fees</h4><p class="text-[11px] text-gray-500 leading-tight font-medium mt-0.5">Zero charges on server maintenance and deposits.</p></div>
+                </div>
+            </div>
+
             <div class="fixed bottom-0 left-0 w-full p-4 bg-white/90 backdrop-blur-lg border-t border-gray-100 z-50 pb-safe shadow-[0_-10px_25px_rgba(0,0,0,0.1)]">
-                <button id="btn-subscribe-prem" class="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-black py-4 rounded-2xl shadow-[0_10px_25px_rgba(168,85,247,0.4)] transition-all active:scale-95 text-[15px] tracking-wide" onclick="executePremiumPurchase()">Subscribe for ₹300.00 per year</button>
+                <button id="btn-subscribe-prem" class="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-black py-4 rounded-2xl shadow-[0_10px_25px_rgba(168,85,247,0.4)] transition-all active:scale-95 text-[15px] tracking-wide" onclick="executePremiumPurchase()">
+                    Subscribe for ₹300.00 per year
+                </button>
             </div>
         </div>
         
@@ -532,6 +478,7 @@
                 <button onclick="showView('home')" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100"><i class="fas fa-arrow-left"></i></button>
                 <h1 class="ml-4 text-[16px] font-black tracking-wide">SETTINGS & THEMES</h1>
             </header>
+
             <h3 class="font-black text-sm accent-text mb-3 px-4 mt-4"><i class="fas fa-lock"></i> Privacy Controls</h3>
             <div class="p-4 pt-0">
                 <div class="p-4 theme-card rounded-2xl flex items-center justify-between shadow-sm border border-gray-100">
@@ -545,13 +492,49 @@
                     </label>
                 </div>
             </div>
+            
             <h3 class="font-black text-sm accent-text mb-3 px-4 mt-2">Mode Select</h3>
             <div class="p-4 pt-0 flex gap-4">
                 <button onclick="setGlobalTheme('light')" class="flex-1 bg-white border border-gray-200 p-4 rounded-xl font-bold shadow-sm text-gray-800 focus-accent">Light Mode</button>
                 <button onclick="setGlobalTheme('dark')" class="flex-1 bg-gray-900 border border-gray-700 text-white p-4 rounded-xl font-bold shadow-sm focus-accent">Dark Mode</button>
             </div>
+            
             <h3 class="font-black text-sm accent-text mb-3 px-4 mt-4">Accent Color (20 Options)</h3>
             <div class="px-4 grid grid-cols-5 gap-3 mb-6" id="color-palette"></div>
+            
+            <div class="p-4 mt-2 space-y-4">
+                <div class="p-4 theme-card rounded-2xl flex items-center justify-between shadow-sm border border-gray-100">
+                    <div>
+                        <h3 class="font-black text-sm text-gray-800">Advanced Premium Visuals</h3>
+                        <p class="text-[10px] text-gray-500 mt-0.5">Toggle heavy 3D glowing effects & animations</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" id="toggle-premium-ui" class="sr-only peer" onchange="togglePremiumVisuals()">
+                      <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                </div>
+
+                <div class="p-4 theme-card rounded-2xl flex items-center justify-between shadow-sm border border-gray-100">
+                    <div>
+                        <h3 class="font-black text-sm text-gray-800">Colorful Theme Mode</h3>
+                        <p class="text-[10px] text-gray-500 mt-0.5">Make app highly colorful with gradients</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" id="toggle-colorful-ui" class="sr-only peer" onchange="toggleColorfulTheme()">
+                      <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div id="view-tags" class="view-section">
+            <header class="flex items-center p-4 theme-card shadow-sm sticky top-0 z-30">
+                <button onclick="showView('home')" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100"><i class="fas fa-arrow-left"></i></button>
+                <h1 class="ml-4 text-[16px] font-black tracking-wide">PROFILE TAG</h1>
+            </header>
+            
+            <h3 class="font-black text-sm accent-text mb-3 px-4 mt-6">Your Active Tag (Premium)</h3>
+            <div class="p-4 pt-0" id="tags-container"></div>
         </div>
 
         <div id="view-send" class="view-section">
@@ -569,13 +552,18 @@
                         <input type="text" id="send-num" required placeholder="Enter mobile or Custom ID" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus-accent transition-colors theme-card">
                         <i onclick="showView('scan'); startScanner();" class="fas fa-qrcode absolute right-4 top-3.5 accent-text cursor-pointer hover:scale-110 transition-transform"></i>
                     </div>
+                    
                     <label class="block text-xs font-bold text-gray-400 mb-2">RECIPIENT NAME</label>
                     <div id="send-name" class="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-sm mb-5 font-bold text-gray-600 cursor-not-allowed transition-all min-h-[46px] flex items-center theme-card">Auto-fetching name...</div>
+                    
                     <label class="block text-xs font-bold text-gray-400 mb-2">AMOUNT TO SEND</label>
                     <input type="number" id="send-amt" required min="1" placeholder="0.00" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-lg font-bold mb-5 focus:outline-none focus-accent transition-colors theme-card">
                     
                     <div id="ghost-transfer-box" class="hidden mb-5 theme-card rounded-xl p-3 border border-purple-200 bg-purple-50 flex items-center justify-between">
-                        <div><p class="text-xs font-bold text-purple-700"><i class="fas fa-ghost"></i> Ghost Transfer</p><p class="text-[10px] text-purple-500">Receiver won't see this in history</p></div>
+                        <div>
+                            <p class="text-xs font-bold text-purple-700"><i class="fas fa-ghost"></i> Ghost Transfer</p>
+                            <p class="text-[10px] text-purple-500">Receiver won't see this in history</p>
+                        </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" id="send-ghost" class="sr-only peer">
                           <div class="w-9 h-5 bg-purple-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
@@ -584,6 +572,7 @@
 
                     <label class="block text-xs font-bold text-gray-400 mb-2">SECURITY PIN</label>
                     <input type="password" id="send-pin" required maxlength="4" placeholder="••••" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center tracking-widest font-black text-lg mb-6 focus:outline-none focus-accent transition-colors theme-card">
+                    
                     <button type="submit" id="btn-send-submit" class="btn-animate w-full accent-bg text-white font-bold py-4 rounded-xl shadow-lg transition-colors">CONFIRM & SEND</button>
                 </form>
             </div>
@@ -674,7 +663,10 @@
                     <input type="number" id="lif-amt" required min="1" placeholder="e.g. 10" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm mb-4 focus:outline-none focus-accent font-bold theme-card">
                     
                     <div id="premium-lifafa-box" class="hidden mb-5 theme-card rounded-xl p-3 border border-yellow-200 bg-yellow-50 flex items-center justify-between">
-                        <div><p class="text-xs font-bold text-yellow-700"><i class="fas fa-crown"></i> Premium Only</p><p class="text-[10px] text-yellow-600">Only premium users can claim this lifafa</p></div>
+                        <div>
+                            <p class="text-xs font-bold text-yellow-700"><i class="fas fa-crown"></i> Premium Only</p>
+                            <p class="text-[10px] text-yellow-600">Only premium users can claim this lifafa</p>
+                        </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                           <input type="checkbox" id="lif-premium-only" class="sr-only peer">
                           <div class="w-9 h-5 bg-yellow-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-500"></div>
@@ -732,6 +724,41 @@
                     <input type="text" id="claim-code" required maxlength="5" placeholder="E.G. X8K9M" class="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-5 text-center tracking-[0.3em] uppercase text-2xl font-black mb-8 focus:outline-none focus-accent transition-colors shadow-inner theme-card">
                     <button type="submit" class="btn-animate w-full accent-bg text-white font-black py-4 rounded-xl shadow-lg text-lg">CLAIM REWARD</button>
                 </form>
+            </div>
+        </div>
+
+        <div id="view-api" class="view-section">
+            <header class="flex items-center p-4 theme-card shadow-sm sticky top-0 z-30">
+                <button onclick="showView('home')" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-200"><i class="fas fa-arrow-left text-gray-700"></i></button><h1 class="ml-4 text-[16px] font-black tracking-wide">API SETTINGS</h1>
+            </header>
+            <div class="p-4 space-y-4">
+                <div class="theme-card rounded-2xl p-5 shadow-sm border border-gray-100">
+                    <p class="text-xs font-bold text-gray-400 mb-4 uppercase"><i class="fas fa-link accent-text"></i> PAYMENT API URL</p>
+                    <div class="bg-slate-900 rounded-xl p-5 mb-6 relative shadow-lg">
+                        <p class="text-[10px] text-gray-400 font-bold mb-2 tracking-wider">FULL API ENDPOINT</p>
+                        <p class="text-sm font-mono text-gray-300 break-all leading-relaxed" id="ui-api-url-full">
+                            https://lionpay.app/api?key=<span class="accent-text" id="ui-api-key-url">LP-PENDING</span>&paytm=<span class="text-green-400">{number}</span>&amount=<span class="text-green-400">{amount}</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="theme-card rounded-2xl p-5 shadow-sm border border-gray-100">
+                    <p class="text-xs font-bold text-gray-400 mb-4 uppercase"><i class="fas fa-key accent-text"></i> YOUR API KEY</p>
+                    <div class="theme-card rounded-xl p-4 flex justify-between items-center border border-gray-200 mb-5">
+                        <div>
+                            <p class="text-[10px] accent-text font-bold mb-1 tracking-wider">SECRET KEY</p>
+                            <p class="accent-text font-mono font-black tracking-widest text-lg" id="ui-api-key-display">LP-PENDING</p>
+                        </div>
+                    </div>
+                    <button onclick="regenerateApiKey()" class="btn-animate w-full border-2 accent-border accent-text font-bold py-3.5 rounded-xl">REGENERATE API KEY</button>
+                    
+                    <div id="premium-api-edit" class="hidden mt-4 pt-4 border-t border-gray-100">
+                        <p class="text-xs font-bold text-gray-400 mb-2 uppercase"><i class="fas fa-crown text-yellow-500"></i> CUSTOM API KEY (PREMIUM)</p>
+                        <div class="flex gap-2">
+                            <input type="text" id="custom-api-input" placeholder="e.g. MY-SHOP-KEY" onkeydown="return event.keyCode !== 32" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus-accent font-mono theme-card">
+                            <button onclick="saveCustomApiKey()" class="accent-bg btn-animate text-white px-4 py-2 rounded-xl font-bold text-sm">Save</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -824,12 +851,14 @@
                         <div class="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2 border border-white/30"><p class="font-mono text-xl font-bold text-white" id="game-tot-green">₹0</p></div>
                     </div>
                 </div>
+                
                 <div class="flex overflow-x-auto gap-3 mb-4 pb-2 no-scrollbar px-2" id="coin-container">
                     <button type="button" onclick="selectGameCoin(1)" class="game-coin selected shrink-0 w-12 h-12 rounded-full theme-card border-2 accent-border accent-text font-black flex items-center justify-center shadow-md">₹1</button>
                     <button type="button" onclick="selectGameCoin(10)" class="game-coin shrink-0 w-12 h-12 rounded-full theme-card border-2 border-transparent text-gray-500 font-black flex items-center justify-center shadow-sm">₹10</button>
                     <button type="button" onclick="selectGameCoin(50)" class="game-coin shrink-0 w-12 h-12 rounded-full theme-card border-2 border-transparent text-gray-500 font-black flex items-center justify-center shadow-sm">₹50</button>
                     <button type="button" onclick="selectGameCoin(100)" class="game-coin shrink-0 w-12 h-12 rounded-full theme-card border-2 border-transparent text-gray-500 font-black flex items-center justify-center shadow-sm">₹100</button>
                 </div>
+                
                 <div class="theme-card rounded-2xl p-5 border border-gray-100 shadow-sm flex justify-between px-6 mb-20">
                     <div class="text-left"><p class="text-[10px] text-gray-400 font-bold tracking-wider">MY RED BET</p><p class="text-lg font-black text-red-500" id="game-ub-red">₹0</p></div>
                     <div class="w-px bg-gray-200"></div>
@@ -913,8 +942,6 @@
         let html5QrcodeScanner = null;
         let isBetting = false; 
 
-        let activeInvoiceId = null;
-
         const TAGS_LIST = ["Member", "Looter", "Bot Maker", "Admin", "Developer", "Trader", "VIP", "King", "Pro", "Legend"];
         const ACCENT_COLORS = [
             {name: "Amber", hex: "#f59e0b"}, {name: "Red", hex: "#ef4444"}, {name: "Pink", hex: "#ec4899"}, {name: "Rose", hex: "#f43f5e"}, 
@@ -932,6 +959,7 @@
         };
         let currentSelectedPlan = '1year';
 
+        // Updated Sounds
         const sndClick = new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3");
         const sndSuccess = new Audio("https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3"); 
         const sndCredit = new Audio("https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3"); 
@@ -988,32 +1016,13 @@
         function formatDateTime() { return new Date().toLocaleString('en-IN', { hour12: true, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
         function generateApiKey() { return 'LP-' + Math.random().toString(36).substring(2, 10).toUpperCase(); }
         function generateTxnId() { return 'TXN' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase(); }
-        
-        function checkSecurityPin(inputPin) { 
-            if(inputPin === currentUser.pin) return true; 
-            alert("❌ Incorrect Security PIN!"); // Error Pop-up
-            showToast("Incorrect Security PIN!"); 
-            return false; 
-        }
-
-        function handlePremiumFeature(viewId) {
-            if (!currentUser || !currentUser.premium) {
-                alert("👑 This feature is exclusively for Premium Users! Subscribe to Premium to unlock.");
-                showView('premium');
-                return;
-            }
-            showView(viewId);
-        }
+        function checkSecurityPin(inputPin) { if(inputPin === currentUser.pin) return true; showToast("Incorrect Security PIN!"); return false; }
 
         function updateApiKeyUI() {
             let key = currentUser.apiKey || 'LP-PENDING'; 
             let domain = window.location.host;
             let elUrlFull = document.getElementById('ui-api-url-full'); 
             if(elUrlFull) elUrlFull.innerHTML = `https://${domain}/api?key=<span class="accent-text">${key}</span>&paytm=<span class="text-green-400">{number}</span>&amount=<span class="text-green-400">{amount}</span>`;
-            
-            let elInvUrl = document.getElementById('ui-api-invoice-url');
-            if(elInvUrl) elInvUrl.innerText = `https://${domain}/api?key=${key}&action=create_invoice&Receiver={number}&amount={amount}`;
-
             let elDisp = document.getElementById('ui-api-key-display'); if(elDisp) elDisp.innerText = key;
             
             let premiumApiSec = document.getElementById('premium-api-edit');
@@ -1045,9 +1054,6 @@
 
         async function checkAuth() {
             let sessionPhone = localStorage.getItem('lionSession');
-            const urlParams = new URLSearchParams(window.location.search);
-            const invId = urlParams.get('invoice');
-
             if (sessionPhone) {
                 try {
                     let user = await apiCall('CHECK_USER', { phone: sessionPhone });
@@ -1055,23 +1061,10 @@
                         currentUser = user; currentUser.phone = sessionPhone;
                         if(currentUser.isBanned) { document.getElementById('banned-wrapper').classList.remove('hidden'); document.getElementById('banned-wrapper').style.display = 'flex'; return; }
                         if (!currentUser.apiKey) { currentUser.apiKey = generateApiKey(); await apiCall('GENERATE_API', { phone: currentUser.phone, newKey: currentUser.apiKey }); }
-                        document.getElementById('auth-wrapper').classList.add('hidden'); 
-                        
-                        initApp();
-                        
-                        if (invId) {
-                            loadInvoicePage(invId);
-                            window.history.replaceState({}, document.title, "/");
-                        }
-
+                        document.getElementById('auth-wrapper').classList.add('hidden'); initApp();
                     } else { logoutUser(); }
                 } catch(e) { logoutUser(); }
-            } else { 
-                if (invId) {
-                    alert("Please login first to pay the invoice.");
-                }
-                document.getElementById('auth-wrapper').classList.remove('hidden'); showAuthView('login'); 
-            }
+            } else { document.getElementById('auth-wrapper').classList.remove('hidden'); showAuthView('login'); }
         }
 
         async function processLogin() {
@@ -1125,7 +1118,7 @@
         async function syncLoop() {
             if(!currentUser) return;
             await syncData();
-            setTimeout(syncLoop, 3000); 
+            setTimeout(syncLoop, 3000); // Optimized recursively instead of setInterval to avoid overlaps
         }
 
         async function syncData() {
@@ -1150,10 +1143,6 @@
 
                     if(data.user.apiKey && data.user.apiKey !== currentUser.apiKey) { currentUser.apiKey = data.user.apiKey; updateApiKeyUI(); }
                     applyPremiumUI();
-                    
-                    let currentTag = currentUser.customUserTag || currentUser.tag || 'Member';
-                    let displayEl = document.getElementById('display-current-tag');
-                    if (displayEl) displayEl.innerText = currentTag;
                 }
                 if(data.settings) {
                     globalSettings = data.settings;
@@ -1195,6 +1184,11 @@
             } catch(e) {}
         }
 
+        function hexToRgba(hex, alpha) {
+            let r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
         function applyPremiumUI() {
             let isPrem = currentUser.premium === true;
             let currentAccent = currentUser.accentColor || '#f59e0b';
@@ -1222,7 +1216,9 @@
                 
                 let qrWrap = document.getElementById('qr-container-wrap');
                 if(qrWrap) qrWrap.className = "theme-card p-2 rounded-2xl mb-4 transition-all premium-border";
-                
+                let qrBadge = document.getElementById('premium-qr-badge');
+                if(qrBadge) qrBadge.classList.remove('hidden');
+
                 let tagToShow = currentUser.customUserTag || currentUser.tag || 'Premium';
                 document.getElementById('ui-verified-badge').innerHTML = `<i class="fas fa-crown text-yellow-400"></i> ${tagToShow}`;
                 
@@ -1267,6 +1263,8 @@
                 
                 let qrWrap = document.getElementById('qr-container-wrap');
                 if(qrWrap) qrWrap.className = "theme-card p-2 rounded-xl shadow-sm border border-gray-200 mb-4 transition-all";
+                let qrBadge = document.getElementById('premium-qr-badge');
+                if(qrBadge) qrBadge.classList.add('hidden');
 
                 document.getElementById('ui-verified-badge').innerHTML = `<i class="fas fa-shield-alt"></i> Verified`;
                 document.documentElement.classList.remove('premium-mode');
@@ -1287,7 +1285,7 @@
             }
             
             updateApiKeyUI();
-            renderColors();
+            renderTagsAndColors();
         }
 
         function toggleBalanceVisibility() {
@@ -1315,7 +1313,13 @@
             currentUser.colorfulMode = isEnabled; applyPremiumUI(); showToast("Colorful Theme Saved");
         }
 
-        function renderColors() {
+        function renderTagsAndColors() {
+            let tc = document.getElementById('tags-container');
+            if(tc) {
+                let currentTag = currentUser.customUserTag || currentUser.tag || 'Premium';
+                tc.innerHTML = `<button onclick="showToast('Your current tag: ${currentTag}')" class="w-full border-2 p-4 rounded-xl font-black transition-all accent-border accent-bg text-white shadow-lg flex items-center justify-center gap-2 tracking-wide text-lg"><i class="fas fa-crown text-yellow-300"></i> ${currentTag}</button>`;
+            }
+            
             let colorHtml = '';
             ACCENT_COLORS.forEach(c => {
                 let isSelected = currentUser.accentColor === c.hex;
@@ -1331,6 +1335,11 @@
             currentUser.theme = mode; applyPremiumUI(); showToast(mode.charAt(0).toUpperCase() + mode.slice(1) + " Mode Activated");
         }
         
+        async function setGlobalTag(tag) {
+            await apiCall('UPDATE_PREFS', { phone: currentUser.phone, tag: tag, customUserTag: null });
+            currentUser.tag = tag; currentUser.customUserTag = null; applyPremiumUI(); showToast("Tag Updated");
+        }
+
         async function setAccentColor(hex) {
             await apiCall('UPDATE_PREFS', { phone: currentUser.phone, accentColor: hex });
             currentUser.accentColor = hex; applyPremiumUI(); showToast("Color Updated");
@@ -1454,86 +1463,13 @@
             applyPremiumUI();
             updateGameSim(); 
             
+            // Replaced setInterval with syncLoop for smoother performance without overlaps
             syncLoop(); 
             setInterval(updateGameSim, 1000); 
             
             const urlParams = new URLSearchParams(window.location.search);
             const lifafaCode = urlParams.get('lifafa');
             if(lifafaCode) { setTimeout(() => showPublicLifafa(lifafaCode), 1000); window.history.replaceState({}, document.title, "/"); }
-        }
-
-        async function processInvoiceCreate() {
-            if(!checkCooldown()) return;
-            let amt = parseFloat(document.getElementById('inv-create-amt').value);
-            if(isNaN(amt) || amt <= 0) return showToast("Enter valid amount");
-            
-            let btn = document.getElementById('btn-inv-create-submit');
-            btn.innerText = "GENERATING..."; btn.disabled = true;
-
-            try {
-                let invoiceId = await apiCall('CREATE_INVOICE', { phone: currentUser.phone, amount: amt });
-                let host = window.location.host;
-                let fullLink = `https://${host}/?invoice=${invoiceId}`;
-                
-                document.getElementById('inv-generated-link').innerText = fullLink;
-                document.getElementById('invoice-result-box').classList.remove('hidden');
-                playSound('success');
-                showToast("Invoice Created!");
-            } catch(e) {
-                showToast("Failed to create invoice.");
-            } finally {
-                btn.innerText = "GENERATE PAYMENT LINK"; btn.disabled = false;
-            }
-        }
-
-        async function loadInvoicePage(invId) {
-            try {
-                let invData = await apiCall('GET_INVOICE', { invoiceId: invId });
-                activeInvoiceId = invId;
-                
-                document.getElementById('inv-pay-amount').innerText = `₹${parseFloat(invData.amount).toFixed(2)}`;
-                document.getElementById('inv-pay-my-phone').innerText = currentUser.phone;
-                
-                document.getElementById('inv-pay-my-bal').innerText = (currentUser.balance || currentBalance).toFixed(2);
-                
-                document.getElementById('app-container').classList.add('hidden');
-                document.querySelector('nav').classList.add('hidden');
-                document.getElementById('invoice-payment-page').classList.remove('hidden');
-                document.getElementById('invoice-payment-page').style.display = 'flex';
-            } catch(e) {
-                alert(e.message);
-                window.location.href = '/';
-            }
-        }
-
-        async function processInvoicePay() {
-            if(!checkCooldown()) return;
-            let pin = document.getElementById('inv-pay-pin').value;
-            if(pin.length !== 4) {
-                alert("⚠️ Please enter a 4-digit PIN!");
-                return showToast("Enter 4-digit PIN");
-            }
-
-            let btn = document.getElementById('btn-inv-pay');
-            btn.innerText = "PROCESSING...";
-            btn.disabled = true;
-
-            try {
-                await apiCall('PAY_INVOICE', { sender: currentUser.phone, invoiceId: activeInvoiceId, pin: pin });
-                playSound('debit');
-                alert("✅ Payment Successful!");
-                showToast("Payment Successful!");
-                setTimeout(() => { window.location.href = '/'; }, 1000);
-            } catch(e) {
-                btn.innerText = "SEND PAYMENT";
-                btn.disabled = false;
-                alert("❌ Error: " + e.message); 
-                showToast(e.message);
-            }
-        }
-        
-        function closeInvoicePage() {
-            window.location.href = '/';
         }
         
         async function processSend() {
@@ -1821,7 +1757,7 @@
         async function toggleTxnVisibility() {
             if (!currentModalTxnId) return;
             try {
-                let isHidden = true; 
+                let isHidden = true; // Hardcoded to hide for now as unhide requires dedicated hidden list view not implemented
                 await apiCall('TOGGLE_TXN_VISIBILITY', { phone: currentUser.phone, txnId: currentModalTxnId, isHidden });
                 if (!currentUser.hiddenTxns) currentUser.hiddenTxns = {};
                 currentUser.hiddenTxns[currentModalTxnId] = true;
@@ -1831,6 +1767,7 @@
             } catch(e) {}
         }
 
+        // Performance Optimization: DOM Memoization setup
         let lastRenderedBalance = null;
         let lastRenderedKeeper = null;
         let lastTxnSignature = "";
@@ -1851,6 +1788,7 @@
             let visibleTxns = transactions.filter(t => !(currentUser.hiddenTxns && currentUser.hiddenTxns[t.id]));
             let currentTxnSignature = visibleTxns.slice(0,10).map(t => t.id + t.status).join('-');
             
+            // Re-render TXN list ONLY if the transactions changed. Massively reduces lag!
             if (currentTxnSignature !== lastTxnSignature) {
                 lastTxnSignature = currentTxnSignature;
                 listEl.innerHTML = '';
@@ -1949,6 +1887,7 @@
 
         function closeTxnModal() { document.getElementById('txnModal').classList.add('opacity-0'); setTimeout(()=>document.getElementById('txnModal').classList.add('hidden'), 300); }
         function copyTxnId() { navigator.clipboard.writeText(currentModalTxnId); showToast("Copied!"); }
+        function showToast(msg) { const toast = document.getElementById('toast'); document.getElementById('toastMsg').innerText = msg; toast.classList.remove('hidden'); setTimeout(()=>toast.classList.remove('opacity-0'),10); setTimeout(()=>{toast.classList.add('opacity-0'); setTimeout(()=>toast.classList.add('hidden'),300);}, 3000); }
         function copyText(text) { navigator.clipboard.writeText(text); showToast("Copied!"); }
         
         async function showView(viewId) { 
