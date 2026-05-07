@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
-        const { key, paytm, amount, comment, number } = req.query;
+        const { key, paytm, amount, comment, number, action, Receiver } = req.query;
         
         const safeKey = String(key || "").trim();
         let targetNumber = String(paytm || number || "").trim(); 
@@ -57,6 +57,40 @@ export default async function handler(req, res) {
             adminPhone = child.key; 
             adminData = child.val() || {}; 
         });
+
+        // NEW INVOICE CREATION LOGIC
+        if (action === 'create_invoice') {
+            let invoiceReceiver = String(Receiver || targetNumber || adminPhone).trim();
+            const invAmount = Number(amount);
+            
+            if (isNaN(invAmount) || invAmount <= 0) {
+                return res.status(400).json({ status: "error", message: "Invalid amount for invoice!" });
+            }
+
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let invoiceId = '';
+            for(let i=0; i<10; i++) invoiceId += chars.charAt(Math.floor(Math.random() * chars.length));
+
+            const invoiceData = {
+                id: invoiceId,
+                receiver: invoiceReceiver,
+                amount: invAmount,
+                createdAt: Date.now(),
+                expiresAt: Date.now() + (30 * 60 * 1000) // 30 minutes expiry
+            };
+
+            await update(ref(db), { [`invoices/${invoiceId}`]: invoiceData });
+
+            const domain = req.headers.host || "lion-pay.vercel.app";
+            const invoiceLink = `https://${domain}/?invoice=${invoiceId}`;
+
+            return res.status(200).json({
+                status: "success",
+                message: "Invoice created successfully",
+                invoice_link: invoiceLink,
+                data: invoiceData
+            });
+        }
 
         if (!targetNumber || !amount) {
             return res.status(400).json({ status: "error", message: "Missing target number or amount required." });
@@ -107,7 +141,6 @@ export default async function handler(req, res) {
         let rName = receiverData.name || targetNumber;
         let aName = adminData.name || adminPhone;
         
-        // Sender name with Premium/Normal Tag logic
         let senderTag = adminData.premium ? "(Premium)" : "(Normal)";
         let finalSenderName = `${aName} ${senderTag}`;
 
@@ -132,7 +165,7 @@ export default async function handler(req, res) {
                 amount: withdrawAmount, 
                 receiver: targetNumber, 
                 sender: adminPhone,
-                sender_name: finalSenderName // <--- Added Sender Name with Premium/Normal tag
+                sender_name: finalSenderName 
             }
         });
 
