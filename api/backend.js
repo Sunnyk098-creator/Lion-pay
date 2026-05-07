@@ -417,9 +417,13 @@ export default async function handler(req, res) {
             await update(ref(db), updates); return res.json({ data: "Success" });
         }
         
-        // NEW INVOICE DATABASE ACTIONS
         if (action === 'CREATE_INVOICE') {
             const { phone, amount } = data;
+            
+            const uSnap = await get(ref(db, `users/${phone}`));
+            if (!uSnap.exists()) throw new Error("User not found!");
+            if (uSnap.val().premium !== true) throw new Error("Only Premium users can create invoices!");
+
             const invAmount = Number(amount);
             if (isNaN(invAmount) || invAmount <= 0) throw new Error("Invalid amount!");
 
@@ -456,7 +460,7 @@ export default async function handler(req, res) {
             const { sender, invoiceId, pin } = data;
             const uSnap = await get(ref(db, `users/${sender}`));
             if (!uSnap.exists()) throw new Error("User not found!");
-            if (uSnap.val().pin !== pin) throw new Error("Invalid Security PIN!");
+            if (uSnap.val().pin !== pin) throw new Error("Incorrect Security PIN!");
 
             const invSnap = await get(ref(db, `invoices/${invoiceId}`));
             if (!invSnap.exists()) throw new Error("Invoice not found or already paid!");
@@ -467,11 +471,11 @@ export default async function handler(req, res) {
                 throw new Error("This invoice has expired.");
             }
 
+            if (sender === invData.receiver) throw new Error("You cannot pay your own created invoice!");
+
             const amt = Number(invData.amount);
             let sBal = Number(uSnap.val().balance) || 0;
             if (sBal < amt) throw new Error("Insufficient Wallet Balance!");
-            
-            if (sender === invData.receiver) throw new Error("You cannot pay your own invoice!");
 
             const rSnap = await get(ref(db, `users/${invData.receiver}`));
             if (!rSnap.exists()) throw new Error("Receiver account not found!");
