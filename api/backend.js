@@ -17,16 +17,23 @@ const db = getDatabase(app);
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
     res.setHeader('Content-Type', 'application/json');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: "Only POST allowed" });
 
-    const { action, data } = req.body;
-
     try {
+        let body = req.body || {};
+        if (typeof body === 'string') {
+            try { body = JSON.parse(body); } catch (e) {}
+        }
+
+        const action = body.action;
+        const data = body.data || {};
+
         if (action === 'CHECK_USER') {
-            let targetPhone = String(data.phone).trim();
+            let targetPhone = String(data.phone || '').trim();
             let normalizedInput = targetPhone.toLowerCase(); 
             
             const customSnap = await get(ref(db, `custom_ids/${normalizedInput}`));
@@ -39,7 +46,7 @@ export default async function handler(req, res) {
             if (userData) {
                 userData.resolvedPhone = targetPhone; 
             } else {
-                const fallbackSnap = await get(ref(db, `users/${data.phone}`));
+                const fallbackSnap = await get(ref(db, `users/${data.phone || ''}`));
                 if (fallbackSnap.exists()) {
                     userData = fallbackSnap.val();
                     userData.resolvedPhone = data.phone;
@@ -49,16 +56,16 @@ export default async function handler(req, res) {
         }
 
         if (action === 'LOGIN') {
-            const snap = await get(ref(db, `users/${data.phone}`));
+            const snap = await get(ref(db, `users/${data.phone || ''}`));
             if (!snap.exists() || snap.val().password !== data.password) throw new Error("Invalid Phone or Password!");
             if (snap.val().isBanned) throw new Error("Account is Banned.");
             return res.json({ data: snap.val() });
         }
 
         if (action === 'REGISTER') {
-            const snap = await get(ref(db, `users/${data.phone}`));
+            const snap = await get(ref(db, `users/${data.phone || ''}`));
             if (snap.exists()) throw new Error("Phone number already registered!");
-            await set(ref(db, `users/${data.phone}`), data.userObj);
+            await set(ref(db, `users/${data.phone || ''}`), data.userObj);
             return res.json({ data: "Success" });
         }
 
@@ -235,7 +242,6 @@ export default async function handler(req, res) {
             let amt = Number(data.amount) || 0;
             if (data.amount !== undefined && amt <= 0) throw new Error("Amount must be greater than zero!");
 
-            // Optimization: Parallel database reads for sender and receiver to reduce server lag
             const [uSnap, rSnap] = await Promise.all([
                 get(ref(db, `users/${data.sender}`)),
                 (data.mode === 'SEND' || data.mode === 'GHOST_SEND') && data.receiver 
@@ -251,7 +257,6 @@ export default async function handler(req, res) {
             let senderName = uSnap.val().name || "User";
             let statusLabel = isPremium ? "(Premium)" : "(Normal)";
 
-            // Zero Tax/Maintenance fees for Premium Users
             if (data.mode === 'DEPOSIT_FEE' && isPremium) {
                 return res.json({ data: "Exempt from fees", serverResponse: { senderName, statusLabel } }); 
             }
@@ -311,7 +316,6 @@ export default async function handler(req, res) {
 
             const updates = { [`users/${data.sender}/balance`]: sBal - total };
             
-            // Optimization: Parallel read for all bulk receivers
             const receiverSnaps = await Promise.all(data.receivers.map(num => get(ref(db, `users/${num}`))));
 
             for(let i = 0; i < data.receivers.length; i++) {
@@ -421,5 +425,7 @@ export default async function handler(req, res) {
         }
 
         return res.status(400).json({ error: "Unknown Action" });
-    } catch (e) { return res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        return res.status(500).json({ error: e.message }); 
+    }
 }
