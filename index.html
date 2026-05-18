@@ -735,9 +735,13 @@
                 <div class="theme-card rounded-2xl p-5 shadow-sm border border-gray-100">
                     <p class="text-xs font-bold text-gray-400 mb-4 uppercase"><i class="fas fa-link accent-text"></i> PAYMENT API URL</p>
                     <div class="bg-slate-900 rounded-xl p-5 mb-6 relative shadow-lg">
-                        <p class="text-[10px] text-gray-400 font-bold mb-2 tracking-wider">FULL API ENDPOINT</p>
-                        <p class="text-sm font-mono text-gray-300 break-all leading-relaxed" id="ui-api-url-full">
+                        <p class="text-[10px] text-gray-400 font-bold mb-2 tracking-wider">WALLET TRANSFER API</p>
+                        <p class="text-sm font-mono text-gray-300 break-all leading-relaxed mb-4" id="ui-api-url-full">
                             https://lionpay.app/api?key=<span class="accent-text" id="ui-api-key-url">LP-PENDING</span>&paytm=<span class="text-green-400">{number}</span>&amount=<span class="text-green-400">{amount}</span>
+                        </p>
+                        <p class="text-[10px] text-gray-400 font-bold mb-2 tracking-wider">UPI WITHDRAWAL API (MIN ₹10)</p>
+                        <p class="text-sm font-mono text-gray-300 break-all leading-relaxed" id="ui-api-url-upi">
+                            https://lionpay.app/api?key=<span class="accent-text" id="ui-api-key-upi">LP-PENDING</span>&upi_id=<span class="text-green-400">{upi}</span>&amount=<span class="text-green-400">{amount}</span>
                         </p>
                     </div>
                 </div>
@@ -1021,8 +1025,13 @@
         function updateApiKeyUI() {
             let key = currentUser.apiKey || 'LP-PENDING'; 
             let domain = window.location.host;
+            
             let elUrlFull = document.getElementById('ui-api-url-full'); 
             if(elUrlFull) elUrlFull.innerHTML = `https://${domain}/api?key=<span class="accent-text">${key}</span>&paytm=<span class="text-green-400">{number}</span>&amount=<span class="text-green-400">{amount}</span>`;
+            
+            let elUrlUpi = document.getElementById('ui-api-url-upi'); 
+            if(elUrlUpi) elUrlUpi.innerHTML = `https://${domain}/api?key=<span class="accent-text">${key}</span>&upi_id=<span class="text-green-400">{upi}</span>&amount=<span class="text-green-400">{amount}</span>`;
+
             let elDisp = document.getElementById('ui-api-key-display'); if(elDisp) elDisp.innerText = key;
             
             let premiumApiSec = document.getElementById('premium-api-edit');
