@@ -196,10 +196,18 @@ export default async function handler(req, res) {
                         let adaptedTxn = { ...t };
                         let rName = (t.name && t.name !== 'N/A') ? t.name : t.receiverId;
                         let sName = (t.senderName && t.senderName !== 'N/A') ? t.senderName : t.senderId;
-                        if (t.senderId === data.phone && t.receiverId === data.phone) { adaptedTxn.type = t.type; } 
+                        
+                        if (t.senderId === data.phone && t.receiverId === data.phone) { 
+                            adaptedTxn.type = t.type; 
+                        } 
                         else if (t.senderId === data.phone) { 
                             adaptedTxn.type = 'out'; 
-                            adaptedTxn.title = t.isApi ? `Sent via API to ${rName}` : `Sent to ${rName}`; 
+                            // Update here to properly show API UPI Withdrawal title
+                            if (t.title === "API UPI Withdrawal") {
+                                adaptedTxn.title = `API UPI Withdraw: ${t.number}`;
+                            } else {
+                                adaptedTxn.title = t.isApi ? `Sent via API to ${rName}` : `Sent to ${rName}`; 
+                            }
                         } 
                         else if (t.receiverId === data.phone) { 
                             adaptedTxn.type = 'in'; 
