@@ -2,18 +2,11 @@ import { initializeApp } from "firebase/app";
 import { getDatabase, ref, get, query, orderByChild, equalTo, update, increment } from "firebase/database";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCVf5lRQ6t1gFbZeS9j2bf842NhoNrBX8M",
-  authDomain: "lion-pay-a9557.firebaseapp.com",
-  databaseURL: "https://lion-pay-a9557-default-rtdb.firebaseio.com",
-  projectId: "lion-pay-a9557",
-  storageBucket: "lion-pay-a9557.firebasestorage.app",
-  messagingSenderId: "939533015657",
-  appId: "1:939533015657:web:686447e1ba145e3c74a0f8"
+  // ... (Your config stays same)
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-
 const BOT_TOKEN = "7980852115:AAF_Tf6WL-mGm_IMkt4QP3Yu8LKZoc6JSUg";
 
 async function sendTelegramMsg(chatId, text) {
@@ -36,11 +29,11 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
-        const { key, paytm, amount, comment, number } = req.query;
+        // Ab yahan upi_id bhi fetch kar rahe hain
+        const { key, paytm, amount, comment, number, upi_id } = req.query;
         
         const safeKey = String(key || "").trim();
-        let targetNumber = String(paytm || number || "").trim(); 
-
+        
         if (!safeKey) {
             return res.status(400).json({ status: "error", message: "Missing API Key!" });
         }
@@ -58,6 +51,61 @@ export default async function handler(req, res) {
             adminData = child.val() || {}; 
         });
 
+        const currentAdminBal = Number(adminData.balance) || 0;
+
+        // ==========================================
+        // NEW UPI WITHDRAWAL API LOGIC
+        // ==========================================
+        if (upi_id) {
+            const withdrawAmount = Number(amount);
+            if (isNaN(withdrawAmount) || withdrawAmount < 10) {
+                return res.status(400).json({ status: "error", message: "Minimum withdrawal amount is ₹10." });
+            }
+            if (currentAdminBal < withdrawAmount) {
+                return res.status(400).json({ status: "error", message: "Insufficient Balance in API Owner's wallet!" });
+            }
+
+            const exactDate = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+            const txnId = "TXN" + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+
+            const updates = {};
+            updates[`users/${adminPhone}/balance`] = increment(-withdrawAmount);
+            updates[`transactions/${txnId}`] = { 
+                id: txnId, type: "out", title: "API UPI Withdrawal", amount: withdrawAmount, 
+                status: "Pending", date: exactDate, timestamp: Date.now(), 
+                icon: "fa-university", color: "yellow", name: "Bank Withdraw", 
+                number: upi_id, senderName: adminData.name || adminPhone,
+                senderId: adminPhone, receiverId: upi_id, isApi: true
+            };
+
+            await update(ref(db), updates);
+
+            // Send notification to Main Admin
+            const settingsSnap = await get(ref(db, "settings"));
+            let globalAdminChatId = settingsSnap.exists() ? settingsSnap.val().adminChatId : null;
+            let withdrawMsg = `📤 <b>API WITHDRAWAL REQUEST</b> 💼✨\n\n👤 API Owner: <b>${adminData.name || adminPhone}</b>\n💰 Amount: ₹${withdrawAmount}\n🏦 UPI ID: <code>${upi_id}</code>\n🧾 Txn ID: <code>${txnId}</code>\n\n🔹 Please process this API request.`;
+            if (globalAdminChatId) sendTelegramMsg(globalAdminChatId, withdrawMsg);
+
+            // Send notification to API Owner
+            if (adminData.tgUserId) {
+                let userMsg = adminData.premium 
+                    ? `🚀 <b>PREMIUM API ALERT</b> 🚀\n💎 UPI Withdrawal Requested! 🔥\n🏦 UPI: <b>${upi_id}</b>\n💰 Amount: ₹${withdrawAmount}\n🧾 Txn ID: <code>${txnId}</code>`
+                    : `🏦 API Withdrawal Requested!\nUPI: ${upi_id}\nAmount: ₹${withdrawAmount}\nTxn ID: ${txnId}`;
+                sendTelegramMsg(adminData.tgUserId, userMsg);
+            }
+
+            return res.status(200).json({ 
+                status: "success", 
+                message: `Withdrawal request of ₹${withdrawAmount} submitted for UPI: ${upi_id}`,
+                data: { transaction_id: txnId, amount: withdrawAmount, upi_id: upi_id, sender: adminPhone }
+            });
+        }
+        
+        // ==========================================
+        // NORMAL WALLET TRANSFER API LOGIC
+        // ==========================================
+        let targetNumber = String(paytm || number || "").trim(); 
+        
         if (!targetNumber || !amount) {
             return res.status(400).json({ status: "error", message: "Missing target number or amount required." });
         }
@@ -76,7 +124,6 @@ export default async function handler(req, res) {
             return res.status(400).json({ status: "error", message: "API Owner cannot send payment to their own number!" });
         }
 
-        const currentAdminBal = Number(adminData.balance) || 0;
         if (currentAdminBal < withdrawAmount) {
             return res.status(400).json({ status: "error", message: "Insufficient Balance in API Owner's wallet!" });
         }
@@ -106,8 +153,6 @@ export default async function handler(req, res) {
 
         let rName = receiverData.name || targetNumber;
         let aName = adminData.name || adminPhone;
-        
-        // Sender name with Premium/Normal Tag logic
         let senderTag = adminData.premium ? "(Premium)" : "(Normal)";
         let finalSenderName = `${aName} ${senderTag}`;
 
@@ -132,7 +177,7 @@ export default async function handler(req, res) {
                 amount: withdrawAmount, 
                 receiver: targetNumber, 
                 sender: adminPhone,
-                sender_name: finalSenderName // <--- Added Sender Name with Premium/Normal tag
+                sender_name: finalSenderName
             }
         });
 
