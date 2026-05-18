@@ -2,11 +2,18 @@ import { initializeApp } from "firebase/app";
 import { getDatabase, ref, get, query, orderByChild, equalTo, update, increment } from "firebase/database";
 
 const firebaseConfig = {
-  // ... (Your config stays same)
+  apiKey: "AIzaSyCVf5lRQ6t1gFbZeS9j2bf842NhoNrBX8M",
+  authDomain: "lion-pay-a9557.firebaseapp.com",
+  databaseURL: "https://lion-pay-a9557-default-rtdb.firebaseio.com",
+  projectId: "lion-pay-a9557",
+  storageBucket: "lion-pay-a9557.firebasestorage.app",
+  messagingSenderId: "939533015657",
+  appId: "1:939533015657:web:686447e1ba145e3c74a0f8"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+
 const BOT_TOKEN = "7980852115:AAF_Tf6WL-mGm_IMkt4QP3Yu8LKZoc6JSUg";
 
 async function sendTelegramMsg(chatId, text) {
@@ -29,7 +36,6 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
-        // Ab yahan upi_id bhi fetch kar rahe hain
         const { key, paytm, amount, comment, number, upi_id } = req.query;
         
         const safeKey = String(key || "").trim();
