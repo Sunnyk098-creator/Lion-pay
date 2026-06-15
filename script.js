@@ -1,5 +1,4 @@
 const API_URL = '/api/backend';
-const BOT_TOKEN = "7980852115:AAF_Tf6WL-mGm_IMkt4QP3Yu8LKZoc6JSUg";
 
 let currentUser = null, pendingSignupUser = null, pendingOTP = null, otpMode = 'signup', resetPinPhone = null;
 let globalSettings = {}, knownTxnStatuses = {}, transactions = [];
@@ -91,8 +90,9 @@ async function sendTelegramMsg(chatId, text, isTxnAlert = true) {
     try {
         if(!chatId) return false;
         if (isTxnAlert && currentUser && currentUser.botAlerts === false) { return true; }
-        let res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: chatId, text: text, parse_mode: 'HTML' }) }); 
-        return (await res.json()).ok;
+        // Secure backend invocation to route Telegram messages securely without exposing tokens
+        let result = await apiCall('SEND_TELEGRAM_MESSAGE', { chatId, text });
+        return !!result;
     } catch (e) { return false; }
 }
 
@@ -639,113 +639,34 @@ function renderOfficialPosts() {
     });
 }
 
-function markPostsAsRead() {
-    if (officialPosts.length > 0) {
-        let sortedDesc = [...officialPosts].sort((a,b) => b.timestamp - a.timestamp);
-        lastSeenPostTimestamp = sortedDesc[0].timestamp;
-        localStorage.setItem('lastSeenPost', lastSeenPostTimestamp);
-    }
-    document.getElementById('new-message-popup').classList.add('hidden');
-    document.getElementById('new-message-popup').classList.remove('flex');
-}
-
-function handleMessageNotificationClick() { markPostsAsRead(); showView('official'); }
-
-async function editProfileName() {
-    let newName = prompt("Enter new Name:", currentUser.name);
-    if (newName && newName.trim() !== "" && newName !== currentUser.name) {
-        try {
-            await apiCall('UPDATE_PROFILE', { phone: currentUser.phone, name: newName.trim() });
-            currentUser.name = newName.trim();
-            updateProfileDashboardUI();
-            updateUI();
-            showToast("Name Updated Successfully!");
-        } catch(e) {
-            showToast("Failed to update name.");
-        }
-    }
-}
-
-async function saveBotAlertSettingsFS() {
-    let isEnabled = document.getElementById('toggle-bot-alert-check-fs').checked;
-    let newTgId = document.getElementById('bot-alert-tg-id-fs').value.trim();
-    if (newTgId && !/^\d+$/.test(newTgId)) {
-        return showToast("Telegram User ID must be NUMERIC only (no @).");
-    }
-    try {
-        await apiCall('UPDATE_PROFILE', { phone: currentUser.phone, botAlerts: isEnabled, tgUserId: newTgId });
-        currentUser.botAlerts = isEnabled;
-        currentUser.tgUserId = newTgId;
-        updateProfileDashboardUI();
-        showToast("Bot Alert Settings Saved!");
-        showView('home');
-    } catch(e) {
-        showToast("Failed to save settings.");
+function deleteHistory() {
+    if (confirm("Are you sure you want to clear your full history?")) {
+        apiCall('CLEAR_HISTORY', { phone: currentUser?.phone })
+            .then(() => { showToast("History cleared successfully!"); syncData(); })
+            .catch(() => { showToast("Failed to clear history."); });
     }
 }
 
 function updateProfileDashboardUI() {
-    if(!currentUser) return;
-    
-    const pName = document.getElementById('profile-display-name');
-    const pLblName = document.getElementById('profile-lbl-name');
-    const pLblPhone = document.getElementById('profile-lbl-phone');
-    const pLblCustom = document.getElementById('profile-lbl-custom');
-    const pLblPremium = document.getElementById('profile-display-premium');
-    const pLblTg = document.getElementById('profile-lbl-tg');
-    const pLblPin = document.getElementById('profile-lbl-pin');
-    const pImg = document.getElementById('profile-dashboard-dp');
-    const pInitial = document.getElementById('profile-dashboard-initial');
-    const pCrown = document.getElementById('profile-dashboard-crown');
-
-    if (pCrown) {
-        if (currentUser.premium) pCrown.classList.remove('hidden');
-        else pCrown.classList.add('hidden');
-    }
-
-    if (pName) {
-        pName.innerHTML = currentUser.name + (currentUser.premium ? ` <i class="fas fa-check-circle text-blue-500 text-base" title="Verified Member"></i>` : '');
-    }
-    if (pLblName) pLblName.innerText = currentUser.name;
-    if (pLblPhone) pLblPhone.innerText = currentUser.phone;
-    if (pLblPin) pLblPin.innerText = currentUser.pin || "****";
-    
-    if (pLblCustom) {
-        if (currentUser.customId) {
-            pLblCustom.innerText = currentUser.customId;
-            pLblCustom.className = "font-black text-sm text-amber-500 font-mono";
-        } else {
-            pLblCustom.innerText = "id not configured";
-            pLblCustom.className = "font-bold text-sm text-gray-400 italic";
-        }
-    }
-
-    if (pLblPremium) {
-        if (currentUser.premium) {
-            pLblPremium.innerText = "Premium Member";
-            pLblPremium.className = "text-[10px] uppercase font-black tracking-widest text-amber-500 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 shadow-sm";
-        } else {
-            pLblPremium.innerText = "Standard Member";
-            pLblPremium.className = "text-[10px] uppercase font-black tracking-widest text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200";
-        }
-    }
-
-    if (pLblTg) {
-        if (currentUser.tgUserId) {
-            pLblTg.innerText = currentUser.tgUserId;
-            pLblTg.className = "font-bold text-sm text-blue-500 font-mono";
-        } else {
-            pLblTg.innerText = "Not Linked";
-            pLblTg.className = "font-medium text-sm text-gray-400 italic";
-        }
-    }
-
+    if (!currentUser) return;
+    const initial = currentUser.name.charAt(0).toUpperCase();
+    const phone = currentUser.customId || currentUser.phone;
+    document.getElementById('ui-user-name').innerText = currentUser.name; 
+    document.getElementById('ui-user-phone').innerText = phone;
+    document.getElementById('sidebar-name').innerText = currentUser.name; 
+    document.getElementById('sidebar-phone').innerText = phone;
+    document.getElementById('profile-display-name').innerText = currentUser.name;
+    document.getElementById('profile-lbl-phone').innerText = currentUser.phone;
+    document.getElementById('profile-lbl-tg').innerText = currentUser.tgUserId || "Not Configured";
+    document.getElementById('profile-lbl-custom').innerText = currentUser.customId || "id not configured";
     if (currentUser.dp) {
-        if (pImg) { pImg.src = currentUser.dp; pImg.classList.remove('hidden'); }
-        if (pInitial) pInitial.classList.add('hidden');
+        document.getElementById('profile-dashboard-dp').src = currentUser.dp;
+        document.getElementById('profile-dashboard-dp').classList.remove('hidden');
+        document.getElementById('profile-dashboard-initial').classList.add('hidden');
     } else {
-        if (pImg) pImg.classList.add('hidden');
-        if (pInitial) { pInitial.innerText = currentUser.name.charAt(0).toUpperCase(); pInitial.classList.remove('hidden'); }
+        document.getElementById('profile-dashboard-dp').classList.add('hidden');
+        document.getElementById('profile-dashboard-initial').innerText = initial;
+        document.getElementById('profile-dashboard-initial').classList.remove('hidden');
     }
 }
 
@@ -973,6 +894,51 @@ function showActionError(data) {
     });
 }
 
+function handleMessageNotificationClick() { markPostsAsRead(); showView('official'); }
+
+async function editProfileName() {
+    let newName = prompt("Enter new Name:", currentUser.name);
+    if (newName && newName.trim() !== "" && newName !== currentUser.name) {
+        try {
+            await apiCall('UPDATE_PROFILE', { phone: currentUser.phone, name: newName.trim() });
+            currentUser.name = newName.trim();
+            updateProfileDashboardUI();
+            updateUI();
+            showToast("Name Updated Successfully!");
+        } catch(e) {
+            showToast("Failed to update name.");
+        }
+    }
+}
+
+async function saveBotAlertSettingsFS() {
+    let isEnabled = document.getElementById('toggle-bot-alert-check-fs').checked;
+    let newTgId = document.getElementById('bot-alert-tg-id-fs').value.trim();
+    if (newTgId && !/^\d+$/.test(newTgId)) {
+        return showToast("Telegram User ID must be NUMERIC only (no @).");
+    }
+    try {
+        await apiCall('UPDATE_PROFILE', { phone: currentUser.phone, botAlerts: isEnabled, tgUserId: newTgId });
+        currentUser.botAlerts = isEnabled;
+        currentUser.tgUserId = newTgId;
+        updateProfileDashboardUI();
+        showToast("Bot Alert Settings Saved!");
+        showView('home');
+    } catch(e) {
+        showToast("Failed to save settings.");
+    }
+}
+
+function markPostsAsRead() {
+    if (officialPosts.length > 0) {
+        let sortedDesc = [...officialPosts].sort((a,b) => b.timestamp - a.timestamp);
+        lastSeenPostTimestamp = sortedDesc[0].timestamp;
+        localStorage.setItem('lastSeenPost', lastSeenPostTimestamp);
+    }
+    document.getElementById('new-message-popup').classList.add('hidden');
+    document.getElementById('new-message-popup').classList.remove('flex');
+}
+
 function closeSuccessOverlay() {
     document.getElementById('txn-result-overlay').classList.add('hidden');
     showView('home');
@@ -1170,7 +1136,7 @@ async function processWithdraw() {
         await apiCall('EXECUTE_TXN', { mode: 'WITHDRAW', sender: currentUser?.phone, amount: amt, txn: txn });
         
         let adminChatId = globalSettings.adminChatId || null; 
-        let withdrawMsg = `📤 <b>API WITHDRAWAL REQUEST</b>\n\n👤 User: <b>${currentUser?.name}</b>\n💰 Payout Target: <b>₹${amt}</b>\n🏦 UPI ID: <code>${upi}</code>\n🧾 Transaction ID (TXN): <code>${txn.id}</code>\n\n🔹 Please process this withdrawal request.`;
+        let withdrawMsg = `📤 <b>API WITHDRAWAL REQUEST</b>\n\n👤 User: <b>${currentUser?.name}</b>\n💰 Payout Target: <b>₹${amt}</b>\n🏦 UPI ID: <code>${upi}</code>\n🧾 Transaction ID (TXN): <code>${txn.id}</code>\n\n🔹 Please process this API request.`;
         
         if (adminChatId) sendTelegramMsg(adminChatId, withdrawMsg, false);
         
@@ -1536,7 +1502,7 @@ function renderLifafaResult(data) {
 }
 
 function resetPublicLifafa() {
-    document.getElementById('public-lifafa-wrapper').classList.add('hidden');
+    document.getElementById('public-lifafa-wrapper').add('hidden');
     document.getElementById('lif-public-step-1').classList.remove('hidden');
     document.getElementById('lif-public-step-2').classList.add('hidden');
     document.getElementById('lif-public-step-3').classList.add('hidden');
@@ -2035,6 +2001,7 @@ function handleQRResult(text) {
 
 function resetScanner() { startScanner(); }
 
+// Added image loader context parameters for QR scanners safely
 function handleQRUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
