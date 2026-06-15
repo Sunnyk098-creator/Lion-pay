@@ -14,8 +14,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Global Bot Token for verification
-const BOT_TOKEN = "7980852115:AAF_Tf6WL-mGm_IMkt4QP3Yu8LKZoc6JSUg";
+// Global Bot Token updated securely in the backend
+const BOT_TOKEN = "7980852115:AAEX7Y4GVVj_y4YDTHjeQ3mitdmhb9OqhQg";
 
 function getExactDate() {
     return new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
@@ -39,6 +39,25 @@ export default async function handler(req, res) {
 
         const action = body.action;
         const data = body.data || {};
+
+        // New Action to securely route Telegram messages from frontend
+        if (action === 'SEND_TELEGRAM_MESSAGE') {
+            const { chatId, text } = data;
+            if (!chatId || !text) throw new Error("invalid");
+            
+            let url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+            try {
+                let tgRes = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: chatId, text: text, parse_mode: 'HTML' })
+                });
+                let tgData = await tgRes.json();
+                return res.json({ data: tgData.ok });
+            } catch (err) {
+                return res.status(200).json({ error: "invalid" });
+            }
+        }
 
         if (action === 'CLEAR_HISTORY') {
             const phone = data.phone;
